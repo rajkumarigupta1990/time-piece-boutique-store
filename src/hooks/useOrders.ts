@@ -19,7 +19,7 @@ export const useOrders = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as (Order & { order_items: (OrderItem & { product: any })[] })[];
+      return data as any[];
     },
   });
 };

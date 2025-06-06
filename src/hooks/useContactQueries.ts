@@ -1,7 +1,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ContactQuery, ContactForm } from '@/types';
+import { ContactQuery } from '@/types';
 
 export const useContactQueries = () => {
   return useQuery({
@@ -14,26 +14,6 @@ export const useContactQueries = () => {
       
       if (error) throw error;
       return data as ContactQuery[];
-    },
-  });
-};
-
-export const useCreateContactQuery = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async (query: ContactForm) => {
-      const { data, error } = await supabase
-        .from('contact_queries')
-        .insert(query)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contact-queries'] });
     },
   });
 };

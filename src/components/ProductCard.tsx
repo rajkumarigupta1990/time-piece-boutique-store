@@ -28,16 +28,16 @@ const ProductCard = ({ product }: ProductCardProps) => {
       <div className="group bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-border">
         <div className="relative aspect-square overflow-hidden">
           <img
-            src={product.image}
+            src={product.images[0]}
             alt={product.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
-          {product.originalPrice && (
+          {product.original_price && (
             <Badge className="absolute top-3 left-3 bg-luxury-gold text-navy-deep">
-              Save ₹{(product.originalPrice - product.price).toLocaleString('en-IN')}
+              Save ₹{(product.original_price - product.price).toLocaleString('en-IN')}
             </Badge>
           )}
-          {!product.inStock && (
+          {!product.in_stock && (
             <Badge variant="secondary" className="absolute top-3 right-3">
               Out of Stock
             </Badge>
@@ -75,9 +75,9 @@ const ProductCard = ({ product }: ProductCardProps) => {
               <span className="text-xl font-bold text-navy-deep">
                 {formatPrice(product.price)}
               </span>
-              {product.originalPrice && (
+              {product.original_price && (
                 <span className="text-sm text-muted-foreground line-through ml-2">
-                  {formatPrice(product.originalPrice)}
+                  {formatPrice(product.original_price)}
                 </span>
               )}
             </div>
@@ -85,11 +85,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
           
           <Button
             onClick={handleAddToCart}
-            disabled={!product.inStock}
+            disabled={!product.in_stock}
             className="w-full bg-luxury-gold hover:bg-luxury-gold/90 text-navy-deep"
           >
             <ShoppingCart className="w-4 h-4 mr-2" />
-            {product.inStock ? 'Add to Cart' : 'Out of Stock'}
+            {product.in_stock ? 'Add to Cart' : 'Out of Stock'}
           </Button>
         </div>
       </div>
