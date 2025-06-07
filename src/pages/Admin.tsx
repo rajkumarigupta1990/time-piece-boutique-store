@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Save, X, Package, MessageSquare, Users } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, Package, MessageSquare, Users, Settings } from 'lucide-react';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '@/hooks/useProducts';
 import { useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
 import { useContactQueries, useUpdateContactQueryStatus } from '@/hooks/useContactQueries';
+import { usePaymentSettings, useUpdatePaymentSettings } from '@/hooks/usePaymentSettings';
 import { Product, Order, ContactQuery } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,12 +20,14 @@ const Admin = () => {
   const { data: products = [] } = useProducts();
   const { data: orders = [] } = useOrders();
   const { data: queries = [] } = useContactQueries();
+  const { data: paymentSettings } = usePaymentSettings();
   
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
   const updateOrderStatus = useUpdateOrderStatus();
   const updateQueryStatus = useUpdateContactQueryStatus();
+  const updatePaymentSettings = useUpdatePaymentSettings();
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -188,6 +192,25 @@ const Admin = () => {
     }
   };
 
+  const handlePaymentSettingsUpdate = async (field: 'cod_enabled' | 'online_payment_enabled', value: boolean) => {
+    try {
+      await updatePaymentSettings.mutateAsync({
+        cod_enabled: field === 'cod_enabled' ? value : paymentSettings?.cod_enabled || true,
+        online_payment_enabled: field === 'online_payment_enabled' ? value : paymentSettings?.online_payment_enabled || true,
+      });
+      toast({
+        title: "Success",
+        description: "Payment settings updated successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update payment settings.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -196,7 +219,7 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="products" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="products" className="flex items-center space-x-2">
               <Package className="w-4 h-4" />
               <span>Products ({products.length})</span>
@@ -208,6 +231,10 @@ const Admin = () => {
             <TabsTrigger value="queries" className="flex items-center space-x-2">
               <MessageSquare className="w-4 h-4" />
               <span>Queries ({queries.length})</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center space-x-2">
+              <Settings className="w-4 h-4" />
+              <span>Settings</span>
             </TabsTrigger>
           </TabsList>
 
@@ -496,6 +523,46 @@ const Admin = () => {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-6">
+            <div className="bg-white rounded-lg shadow border border-border p-6">
+              <h2 className="text-2xl font-bold text-navy-deep mb-6">Payment Settings</h2>
+              
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <label className="text-base font-medium">Cash on Delivery (COD)</label>
+                    <p className="text-sm text-gray-500">
+                      Allow customers to pay with cash when the order is delivered
+                    </p>
+                  </div>
+                  <Switch
+                    checked={paymentSettings?.cod_enabled || false}
+                    onCheckedChange={(checked) => handlePaymentSettingsUpdate('cod_enabled', checked)}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <label className="text-base font-medium">Online Payment</label>
+                    <p className="text-sm text-gray-500">
+                      Allow customers to pay online using Razorpay (cards, UPI, wallets, etc.)
+                    </p>
+                  </div>
+                  <Switch
+                    checked={paymentSettings?.online_payment_enabled || false}
+                    onCheckedChange={(checked) => handlePaymentSettingsUpdate('online_payment_enabled', checked)}
+                  />
+                </div>
+              </div>
+
+              {(!paymentSettings?.cod_enabled && !paymentSettings?.online_payment_enabled) && (
+                <div className="mt-4 p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded">
+                  <strong>Warning:</strong> At least one payment method should be enabled for customers to place orders.
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>

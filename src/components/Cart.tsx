@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { X, Minus, Plus, ShoppingCart } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import { usePaymentSettings } from '@/hooks/usePaymentSettings';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
@@ -15,9 +15,11 @@ interface CartProps {
 
 const Cart = ({ isOpen, onClose }: CartProps) => {
   const { cartItems, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
+  const { data: paymentSettings } = usePaymentSettings();
   const { toast } = useToast();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showShippingForm, setShowShippingForm] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'online' | 'cod'>('online');
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
     name: '',
     email: '',
@@ -41,6 +43,27 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
       });
       return;
     }
+
+    // Check if any payment method is enabled
+    const codEnabled = paymentSettings?.cod_enabled || false;
+    const onlineEnabled = paymentSettings?.online_payment_enabled || false;
+    
+    if (!codEnabled && !onlineEnabled) {
+      toast({
+        title: "Payment Unavailable",
+        description: "No payment methods are currently available. Please contact support.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Set default payment method based on what's available
+    if (onlineEnabled && !codEnabled) {
+      setSelectedPaymentMethod('online');
+    } else if (codEnabled && !onlineEnabled) {
+      setSelectedPaymentMethod('cod');
+    }
+
     setShowShippingForm(true);
   };
 
@@ -49,78 +72,111 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
     setIsCheckingOut(true);
 
     try {
-      // Create order with Razorpay
-      const response = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
-        },
-        body: JSON.stringify({
-          items: cartItems,
-          shippingAddress,
-          totalAmount: getCartTotal()
-        })
-      });
+      if (selectedPaymentMethod === 'cod') {
+        // Handle COD order
+        const response = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
+          },
+          body: JSON.stringify({
+            items: cartItems,
+            shippingAddress,
+            totalAmount: getCartTotal(),
+            paymentMethod: 'cod'
+          })
+        });
 
-      const orderData = await response.json();
+        const orderData = await response.json();
 
-      if (!response.ok) {
-        throw new Error(orderData.error || 'Failed to create order');
-      }
-
-      // Initialize Razorpay payment
-      const options = {
-        key: orderData.key,
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: 'Luxury Watch Store',
-        description: 'Purchase of luxury watches',
-        order_id: orderData.razorpayOrderId,
-        handler: async (response: any) => {
-          try {
-            // Verify payment
-            await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/verify-payment', {
-              method: 'POST',
-              headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
-              },
-              body: JSON.stringify({
-                razorpayOrderId: response.razorpay_order_id,
-                razorpayPaymentId: response.razorpay_payment_id,
-                orderId: orderData.orderId
-              })
-            });
-
-            toast({
-              title: "Payment Successful!",
-              description: "Your order has been placed successfully.",
-            });
-
-            clearCart();
-            onClose();
-            setShowShippingForm(false);
-          } catch (error) {
-            toast({
-              title: "Payment Verification Failed",
-              description: "Please contact support.",
-              variant: "destructive"
-            });
-          }
-        },
-        prefill: {
-          name: shippingAddress.name,
-          email: shippingAddress.email,
-          contact: shippingAddress.phone
-        },
-        theme: {
-          color: '#D4AF37'
+        if (!response.ok) {
+          throw new Error(orderData.error || 'Failed to create order');
         }
-      };
 
-      const razorpay = new (window as any).Razorpay(options);
-      razorpay.open();
+        toast({
+          title: "Order Placed Successfully!",
+          description: "Your COD order has been placed. You'll pay when the order is delivered.",
+        });
+
+        clearCart();
+        onClose();
+        setShowShippingForm(false);
+      } else {
+        // Handle online payment
+        const response = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
+          },
+          body: JSON.stringify({
+            items: cartItems,
+            shippingAddress,
+            totalAmount: getCartTotal(),
+            paymentMethod: 'online'
+          })
+        });
+
+        const orderData = await response.json();
+
+        if (!response.ok) {
+          throw new Error(orderData.error || 'Failed to create order');
+        }
+
+        // Initialize Razorpay payment
+        const options = {
+          key: orderData.key,
+          amount: orderData.amount,
+          currency: orderData.currency,
+          name: 'Luxury Watch Store',
+          description: 'Purchase of luxury watches',
+          order_id: orderData.razorpayOrderId,
+          handler: async (response: any) => {
+            try {
+              // Verify payment
+              await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/verify-payment', {
+                method: 'POST',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
+                },
+                body: JSON.stringify({
+                  razorpayOrderId: response.razorpay_order_id,
+                  razorpayPaymentId: response.razorpay_payment_id,
+                  orderId: orderData.orderId
+                })
+              });
+
+              toast({
+                title: "Payment Successful!",
+                description: "Your order has been placed successfully.",
+              });
+
+              clearCart();
+              onClose();
+              setShowShippingForm(false);
+            } catch (error) {
+              toast({
+                title: "Payment Verification Failed",
+                description: "Please contact support.",
+                variant: "destructive"
+              });
+            }
+          },
+          prefill: {
+            name: shippingAddress.name,
+            email: shippingAddress.email,
+            contact: shippingAddress.phone
+          },
+          theme: {
+            color: '#D4AF37'
+          }
+        };
+
+        const razorpay = new (window as any).Razorpay(options);
+        razorpay.open();
+      }
     } catch (error) {
       toast({
         title: "Checkout Failed",
@@ -133,11 +189,14 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
   };
 
   if (showShippingForm) {
+    const codEnabled = paymentSettings?.cod_enabled || false;
+    const onlineEnabled = paymentSettings?.online_payment_enabled || false;
+
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Shipping Details</DialogTitle>
+            <DialogTitle>Shipping Details & Payment</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleShippingSubmit} className="space-y-4">
             <Input
@@ -185,6 +244,36 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
               onChange={(e) => setShippingAddress(prev => ({ ...prev, pincode: e.target.value }))}
               required
             />
+            {/* Payment Method Selection */}
+            {codEnabled && onlineEnabled && (
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">Payment Method</label>
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="online"
+                      checked={selectedPaymentMethod === 'online'}
+                      onChange={(e) => setSelectedPaymentMethod(e.target.value as 'online' | 'cod')}
+                      className="mr-2"
+                    />
+                    Online Payment (Cards, UPI, Wallets)
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="cod"
+                      checked={selectedPaymentMethod === 'cod'}
+                      onChange={(e) => setSelectedPaymentMethod(e.target.value as 'online' | 'cod')}
+                      className="mr-2"
+                    />
+                    Cash on Delivery (COD)
+                  </label>
+                </div>
+              </div>
+            )}
             <div className="flex space-x-2">
               <Button
                 type="button"
@@ -199,7 +288,9 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
                 disabled={isCheckingOut}
                 className="flex-1 bg-luxury-gold hover:bg-luxury-gold/90 text-navy-deep"
               >
-                {isCheckingOut ? 'Processing...' : `Pay ${formatPrice(getCartTotal())}`}
+                {isCheckingOut ? 'Processing...' : 
+                 selectedPaymentMethod === 'cod' ? `Place COD Order ${formatPrice(getCartTotal())}` : 
+                 `Pay ${formatPrice(getCartTotal())}`}
               </Button>
             </div>
           </form>

@@ -25,6 +25,7 @@ export interface Order {
   user_id?: string;
   total_amount: number;
   status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  payment_method?: 'online' | 'cod';
   razorpay_order_id?: string;
   razorpay_payment_id?: string;
   shipping_address: ShippingAddress;
@@ -77,4 +78,11 @@ export interface ContactForm {
   email: string;
   subject: string;
   message: string;
+}
+
+export interface PaymentSettings {
+  id: string;
+  cod_enabled: boolean;
+  online_payment_enabled: boolean;
+  updated_at: string;
 }
