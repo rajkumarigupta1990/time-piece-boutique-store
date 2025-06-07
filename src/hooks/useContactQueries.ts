@@ -18,6 +18,29 @@ export const useContactQueries = () => {
   });
 };
 
+export const useCreateContactQuery = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (query: Omit<ContactQuery, 'id' | 'created_at' | 'updated_at' | 'status'>) => {
+      const { data, error } = await supabase
+        .from('contact_queries')
+        .insert({
+          ...query,
+          status: 'pending'
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contact-queries'] });
+    },
+  });
+};
+
 export const useUpdateContactQueryStatus = () => {
   const queryClient = useQueryClient();
   

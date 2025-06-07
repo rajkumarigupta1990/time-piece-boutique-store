@@ -6,11 +6,15 @@ import { Button } from '@/components/ui/button';
 import ProductCard from '@/components/ProductCard';
 import TestimonialCard from '@/components/TestimonialCard';
 import { testimonials } from '@/data/testimonials';
+import { products as fallbackProducts } from '@/data/products';
 import { Star, Award, Shield, Clock } from 'lucide-react';
 
 const Index = () => {
   const navigate = useNavigate();
-  const { data: products = [], isLoading } = useProducts();
+  const { data: dbProducts = [], isLoading, error } = useProducts();
+  
+  // Use database products if available, otherwise fall back to static data
+  const products = dbProducts.length > 0 ? dbProducts : fallbackProducts;
   
   // Get featured products (first 3)
   const featuredProducts = products.slice(0, 3);
@@ -78,13 +82,17 @@ const Index = () => {
 
           {isLoading ? (
             <div className="text-center">Loading featured products...</div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {featuredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
+          ) : error ? (
+            <div className="text-center text-red-600">
+              Unable to load products from database, showing sample products.
             </div>
-          )}
+          ) : null}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {featuredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
 
           <div className="text-center mt-12">
             <Button 

@@ -5,12 +5,16 @@ import ProductCard from '@/components/ProductCard';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search } from 'lucide-react';
+import { products as fallbackProducts } from '@/data/products';
 
 const Products = () => {
-  const { data: products = [], isLoading, error } = useProducts();
+  const { data: dbProducts = [], isLoading, error } = useProducts();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('name');
+
+  // Use database products if available, otherwise fall back to static data
+  const products = dbProducts.length > 0 ? dbProducts : fallbackProducts;
 
   const filteredProducts = products
     .filter(product => {
@@ -42,20 +46,16 @@ const Products = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center text-red-600">Error loading products</div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-3xl font-bold text-navy-deep mb-8">Our Collection</h1>
+        
+        {error && (
+          <div className="mb-4 p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded">
+            Unable to load products from database. Showing sample products instead.
+          </div>
+        )}
         
         {/* Filters */}
         <div className="mb-8 space-y-4 md:space-y-0 md:flex md:space-x-4">
