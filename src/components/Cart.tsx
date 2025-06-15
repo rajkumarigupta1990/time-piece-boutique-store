@@ -53,6 +53,278 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
   const totalWithShipping = includeShippingInTotal ? subtotal + shippingCharge : subtotal;
   const finalTotal = totalWithShipping - discountAmount;
 
+  // New helper: Create Razorpay order for either shipping charge or full order
+  const createRazorpayOrder = async ({
+      amount,
+      shippingAddress,
+      paymentMethod,
+      items,
+      couponCode,
+      discountAmount,
+      codShippingOnly = false
+    }: {
+      amount: number,
+      shippingAddress: ShippingAddress,
+      paymentMethod: 'online'|'cod',
+      items: any[],
+      couponCode: string|undefined,
+      discountAmount: number,
+      codShippingOnly?: boolean,
+    }
+  ) => {
+    // For COD-with-shipping, send a marker to backend (so backend knows this is only shipping)
+    const requestBody = {
+      items: codShippingOnly ? [] : items, // For shipping payments, no order items
+      shippingAddress,
+      totalAmount: amount,
+      paymentMethod,
+      couponCode,
+      discountAmount,
+      codShippingOnly,
+    };
+
+    // Always call the same endpoint
+    const response = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
+      },
+      body: JSON.stringify(requestBody)
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to create order');
+    return result; // Razorpay order details
+  };
+
+  // New: COD shipping charge upfront flow
+  const [isPayingShipping, setIsPayingShipping] = useState(false);
+
+  // New main handler - refactor for clarity and correct flow!
+  const handleShippingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCheckingOut(true);
+
+    // Helper for successful shipping upfront payment before placing actual COD order
+    async function handleCodShippingUpfront() {
+      setIsPayingShipping(true);
+      try {
+        // 1. Create a Razorpay order for just the shipping charge
+        const rpResult = await createRazorpayOrder({
+          amount: shippingCharge,
+          shippingAddress,
+          paymentMethod: 'cod',
+          items: [],
+          couponCode: undefined,
+          discountAmount: 0,
+          codShippingOnly: true,
+        });
+
+        const options = {
+          key: rpResult.key,
+          amount: rpResult.amount,
+          currency: rpResult.currency,
+          name: 'Shipping Charge',
+          description: 'Shipping payment for COD order',
+          order_id: rpResult.razorpayOrderId,
+          handler: async (response: any) => {
+            // 2. Verify shipping payment
+            try {
+              await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/verify-payment', {
+                method: 'POST',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
+                },
+                body: JSON.stringify({
+                  razorpayOrderId: response.razorpay_order_id,
+                  razorpayPaymentId: response.razorpay_payment_id,
+                  orderId: rpResult.orderId
+                })
+              });
+
+              // 3. Place COD order for the remaining items (without shipping charge)
+              const codOrderBody = {
+                items: cartItems,
+                shippingAddress,
+                totalAmount: finalTotal - shippingCharge, // Exclude shipping, already paid
+                paymentMethod: 'cod',
+                couponCode: appliedCoupon?.coupon_data?.code,
+                discountAmount,
+                codShippingUpfrontPaid: true, // Just for possible backend reference
+              };
+              const codResp = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
+                method: 'POST',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
+                },
+                body: JSON.stringify(codOrderBody)
+              });
+              const codResult = await codResp.json();
+              if (!codResp.ok) throw new Error(codResult.error || 'Failed to place COD order after shipping payment');
+              toast({
+                title: "Order Placed!",
+                description: "Shipping charge collected. Remaining to be paid at delivery.",
+              });
+              clearCart();
+              setAppliedCoupon(null);
+              setCouponCode('');
+              setShowShippingForm(false);
+              onClose();
+            } catch (err) {
+              toast({
+                title: "COD Order Failed",
+                description: err instanceof Error ? err.message : "Please contact support.",
+                variant: "destructive"
+              });
+            }
+            setIsPayingShipping(false);
+          },
+          prefill: {
+            name: shippingAddress.name,
+            email: shippingAddress.email,
+            contact: shippingAddress.phone,
+          },
+          theme: {
+            color: '#D4AF37',
+          }
+        };
+        const razorpay = new (window as any).Razorpay(options);
+        razorpay.open();
+      } catch (error) {
+        toast({
+          title: "Shipping Payment Failed",
+          description: error instanceof Error ? error.message : "Please try again.",
+          variant: "destructive"
+        });
+        setIsPayingShipping(false);
+      }
+      setIsCheckingOut(false);
+    }
+
+    // COD, shipping upfront, process above flow
+    if (selectedPaymentMethod === 'cod' && includeShippingInTotal) {
+      // Don't place order directly, first collect shipping payment!
+      await handleCodShippingUpfront();
+      return;
+    }
+
+    try {
+      // Online payment or simple COD without shipping upfront
+      const orderData = {
+        items: cartItems,
+        shippingAddress,
+        totalAmount: finalTotal,
+        paymentMethod: selectedPaymentMethod,
+        couponCode: appliedCoupon?.coupon_data?.code,
+        discountAmount: discountAmount,
+      };
+
+      if (selectedPaymentMethod === 'cod') {
+        // COD, but shipping not collected upfront
+        const response = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
+          },
+          body: JSON.stringify(orderData)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to create order');
+        }
+
+        toast({
+          title: "Order Placed Successfully!",
+          description: includeShippingInTotal ? 
+            "Your COD order has been placed with shipping charges already collected." :
+            "Your COD order has been placed. Shipping charges will be collected at delivery.",
+        });
+
+        clearCart();
+        onClose();
+        setShowShippingForm(false);
+        setAppliedCoupon(null);
+        setCouponCode('');
+      } else {
+        // Handle online (full) payment
+        const result = await createRazorpayOrder({
+          amount: finalTotal,
+          shippingAddress,
+          paymentMethod: 'online',
+          items: cartItems,
+          couponCode: appliedCoupon?.coupon_data?.code,
+          discountAmount
+        });
+
+        const options = {
+          key: result.key,
+          amount: result.amount,
+          currency: result.currency,
+          name: 'Luxury Watch Store',
+          description: 'Purchase of luxury watches',
+          order_id: result.razorpayOrderId,
+          handler: async (response: any) => {
+            try {
+              await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/verify-payment', {
+                method: 'POST',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
+                },
+                body: JSON.stringify({
+                  razorpayOrderId: response.razorpay_order_id,
+                  razorpayPaymentId: response.razorpay_payment_id,
+                  orderId: result.orderId
+                })
+              });
+
+              toast({
+                title: "Payment Successful!",
+                description: "Your order has been placed successfully.",
+              });
+
+              clearCart();
+              onClose();
+              setShowShippingForm(false);
+              setAppliedCoupon(null);
+              setCouponCode('');
+            } catch (error) {
+              toast({
+                title: "Payment Verification Failed",
+                description: "Please contact support.",
+                variant: "destructive"
+              });
+            }
+          },
+          prefill: {
+            name: shippingAddress.name,
+            email: shippingAddress.email,
+            contact: shippingAddress.phone
+          },
+          theme: {
+            color: '#D4AF37'
+          }
+        };
+
+        const razorpay = new (window as any).Razorpay(options);
+        razorpay.open();
+      }
+    } catch (error) {
+      toast({
+        title: "Checkout Failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCheckingOut(false);
+    }
+  };
+
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
       toast({
@@ -151,132 +423,6 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
     }
     
     updateQuantity(productId, newQuantity);
-  };
-
-  const handleShippingSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsCheckingOut(true);
-
-    try {
-      const orderData = {
-        items: cartItems,
-        shippingAddress,
-        totalAmount: finalTotal,
-        paymentMethod: selectedPaymentMethod,
-        couponCode: appliedCoupon?.coupon_data?.code,
-        discountAmount: discountAmount
-      };
-
-      if (selectedPaymentMethod === 'cod') {
-        // Handle COD order
-        const response = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
-          },
-          body: JSON.stringify(orderData)
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || 'Failed to create order');
-        }
-
-        toast({
-          title: "Order Placed Successfully!",
-          description: includeShippingInTotal ? 
-            "Your COD order has been placed with shipping charges included." :
-            "Your COD order has been placed. Shipping charges will be collected at delivery.",
-        });
-
-        clearCart();
-        onClose();
-        setShowShippingForm(false);
-        setAppliedCoupon(null);
-        setCouponCode('');
-      } else {
-        // Handle online payment
-        const response = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
-          },
-          body: JSON.stringify(orderData)
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || 'Failed to create order');
-        }
-
-        // Initialize Razorpay payment
-        const options = {
-          key: result.key,
-          amount: result.amount,
-          currency: result.currency,
-          name: 'Luxury Watch Store',
-          description: 'Purchase of luxury watches',
-          order_id: result.razorpayOrderId,
-          handler: async (response: any) => {
-            try {
-              // Verify payment
-              await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/verify-payment', {
-                method: 'POST',
-                headers: { 
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
-                },
-                body: JSON.stringify({
-                  razorpayOrderId: response.razorpay_order_id,
-                  razorpayPaymentId: response.razorpay_payment_id,
-                  orderId: result.orderId
-                })
-              });
-
-              toast({
-                title: "Payment Successful!",
-                description: "Your order has been placed successfully.",
-              });
-
-              clearCart();
-              onClose();
-              setShowShippingForm(false);
-              setAppliedCoupon(null);
-              setCouponCode('');
-            } catch (error) {
-              toast({
-                title: "Payment Verification Failed",
-                description: "Please contact support.",
-                variant: "destructive"
-              });
-            }
-          },
-          prefill: {
-            name: shippingAddress.name,
-            email: shippingAddress.email,
-            contact: shippingAddress.phone
-          },
-          theme: {
-            color: '#D4AF37'
-          }
-        };
-
-        const razorpay = new (window as any).Razorpay(options);
-        razorpay.open();
-      }
-    } catch (error) {
-      toast({
-        title: "Checkout Failed",
-        description: error instanceof Error ? error.message : "Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsCheckingOut(false);
-    }
   };
 
   if (showShippingForm) {
