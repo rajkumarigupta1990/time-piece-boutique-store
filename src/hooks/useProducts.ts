@@ -17,7 +17,7 @@ export const useProducts = () => {
       // Convert database records to Product type
       return data.map(item => ({
         ...item,
-        additional_charges: (item.additional_charges as AdditionalCharge[]) || []
+        additional_charges: (item.additional_charges as unknown as AdditionalCharge[]) || []
       })) as Product[];
     },
   });
@@ -38,7 +38,7 @@ export const useProduct = (id: string) => {
       // Convert database record to Product type
       return {
         ...data,
-        additional_charges: (data.additional_charges as AdditionalCharge[]) || []
+        additional_charges: (data.additional_charges as unknown as AdditionalCharge[]) || []
       } as Product;
     },
   });
@@ -66,7 +66,7 @@ export const useCreateProduct = () => {
       // Convert back to Product type
       return {
         ...data,
-        additional_charges: (data.additional_charges as AdditionalCharge[]) || []
+        additional_charges: (data.additional_charges as unknown as AdditionalCharge[]) || []
       } as Product;
     },
     onSuccess: () => {
@@ -98,7 +98,7 @@ export const useUpdateProduct = () => {
       // Convert back to Product type
       return {
         ...data,
-        additional_charges: (data.additional_charges as AdditionalCharge[]) || []
+        additional_charges: (data.additional_charges as unknown as AdditionalCharge[]) || []
       } as Product;
     },
     onSuccess: () => {
