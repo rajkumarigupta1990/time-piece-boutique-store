@@ -230,6 +230,30 @@ export type Database = {
           },
         ]
       }
+      payment_collection_settings: {
+        Row: {
+          collect_other_charges_upfront: boolean | null
+          collect_shipping_upfront: boolean | null
+          id: string
+          shipping_charge: number | null
+          updated_at: string
+        }
+        Insert: {
+          collect_other_charges_upfront?: boolean | null
+          collect_shipping_upfront?: boolean | null
+          id?: string
+          shipping_charge?: number | null
+          updated_at?: string
+        }
+        Update: {
+          collect_other_charges_upfront?: boolean | null
+          collect_shipping_upfront?: boolean | null
+          id?: string
+          shipping_charge?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payment_settings: {
         Row: {
           cod_enabled: boolean
@@ -253,6 +277,7 @@ export type Database = {
       }
       products: {
         Row: {
+          additional_charges: Json | null
           brand: string
           category: string
           created_at: string
@@ -261,6 +286,7 @@ export type Database = {
           id: string
           images: string[]
           in_stock: boolean
+          moq: number | null
           name: string
           original_price: number | null
           price: number
@@ -269,6 +295,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          additional_charges?: Json | null
           brand: string
           category: string
           created_at?: string
@@ -277,6 +304,7 @@ export type Database = {
           id?: string
           images?: string[]
           in_stock?: boolean
+          moq?: number | null
           name: string
           original_price?: number | null
           price: number
@@ -285,6 +313,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          additional_charges?: Json | null
           brand?: string
           category?: string
           created_at?: string
@@ -293,6 +322,7 @@ export type Database = {
           id?: string
           images?: string[]
           in_stock?: boolean
+          moq?: number | null
           name?: string
           original_price?: number | null
           price?: number

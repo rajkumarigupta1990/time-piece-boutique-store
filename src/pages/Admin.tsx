@@ -4,7 +4,7 @@ import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } fro
 import { useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
 import { useContactQueries, useUpdateContactQueryStatus } from '@/hooks/useContactQueries';
 import { usePaymentSettings, useUpdatePaymentSettings } from '@/hooks/usePaymentSettings';
-import { Product, Order, ContactQuery } from '@/types';
+import { Product, Order, ContactQuery, AdditionalCharge } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import CouponManagement from '@/components/CouponManagement';
+import PaymentCollectionSettings from '@/components/PaymentCollectionSettings';
 
 const Admin = () => {
   const { toast } = useToast();
@@ -43,7 +44,9 @@ const Admin = () => {
     category: 'luxury',
     in_stock: true,
     rating: 4.5,
-    reviews: 0
+    reviews: 0,
+    moq: 1,
+    additional_charges: []
   });
 
   const formatPrice = (price: number) => {
@@ -74,7 +77,9 @@ const Admin = () => {
       category: 'luxury',
       in_stock: true,
       rating: 4.5,
-      reviews: 0
+      reviews: 0,
+      moq: 1,
+      additional_charges: []
     });
   };
 
@@ -100,7 +105,9 @@ const Admin = () => {
         category: formData.category as Product['category'],
         in_stock: formData.in_stock!,
         rating: formData.rating!,
-        reviews: formData.reviews!
+        reviews: formData.reviews!,
+        moq: formData.moq || 1,
+        additional_charges: formData.additional_charges || []
       };
 
       if (editingProduct) {
@@ -159,6 +166,23 @@ const Admin = () => {
   const handleImagesChange = (images: string) => {
     const imagesArray = images.split('\n').filter(img => img.trim());
     setFormData(prev => ({ ...prev, images: imagesArray }));
+  };
+
+  const handleAdditionalChargesChange = (charges: string) => {
+    try {
+      const chargesArray = charges.split('\n').filter(c => c.trim()).map(charge => {
+        const [name, amount, description] = charge.split('|').map(s => s.trim());
+        return {
+          name,
+          amount: Number(amount) || 0,
+          description: description || ''
+        } as AdditionalCharge;
+      });
+      setFormData(prev => ({ ...prev, additional_charges: chargesArray }));
+    } catch (error) {
+      // Handle invalid format gracefully
+      setFormData(prev => ({ ...prev, additional_charges: [] }));
+    }
   };
 
   const handleOrderStatusUpdate = async (orderId: string, status: Order['status']) => {
@@ -303,23 +327,36 @@ const Admin = () => {
                         />
                       </div>
                     </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                      <Select 
-                        value={formData.category} 
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, category: value as Product['category'] }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="luxury">Luxury</SelectItem>
-                          <SelectItem value="sport">Sport</SelectItem>
-                          <SelectItem value="classic">Classic</SelectItem>
-                          <SelectItem value="smart">Smart</SelectItem>
-                        </SelectContent>
-                      </Select>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">MOQ (Minimum Order Quantity)</label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={formData.moq || 1}
+                          onChange={(e) => setFormData(prev => ({ ...prev, moq: Number(e.target.value) || 1 }))}
+                          placeholder="MOQ"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                        <Select 
+                          value={formData.category} 
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, category: value as Product['category'] }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="luxury">Luxury</SelectItem>
+                            <SelectItem value="sport">Sport</SelectItem>
+                            <SelectItem value="classic">Classic</SelectItem>
+                            <SelectItem value="smart">Smart</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
 
@@ -340,7 +377,7 @@ const Admin = () => {
                         value={formData.description || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                         placeholder="Product description"
-                        rows={4}
+                        rows={3}
                       />
                     </div>
                     
@@ -350,8 +387,23 @@ const Admin = () => {
                         value={(formData.features || []).join('\n')}
                         onChange={(e) => handleFeatureChange(e.target.value)}
                         placeholder="Feature 1&#10;Feature 2&#10;Feature 3"
-                        rows={4}
+                        rows={3}
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Additional Charges (Name|Amount|Description per line)</label>
+                      <Textarea
+                        value={(formData.additional_charges || []).map(charge => 
+                          `${charge.name}|${charge.amount}|${charge.description || ''}`
+                        ).join('\n')}
+                        onChange={(e) => handleAdditionalChargesChange(e.target.value)}
+                        placeholder="Installation Fee|500|Professional installation&#10;Extended Warranty|1000|2 year extended warranty"
+                        rows={3}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Format: Name|Amount|Description (Description is optional)
+                      </p>
                     </div>
 
                     <div className="flex items-center space-x-4">
@@ -536,42 +588,46 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
-            <div className="bg-white rounded-lg shadow border border-border p-6">
-              <h2 className="text-2xl font-bold text-navy-deep mb-6">Payment Settings</h2>
-              
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <label className="text-base font-medium">Cash on Delivery (COD)</label>
-                    <p className="text-sm text-gray-500">
-                      Allow customers to pay with cash when the order is delivered
-                    </p>
-                  </div>
-                  <Switch
-                    checked={paymentSettings?.cod_enabled || false}
-                    onCheckedChange={(checked) => handlePaymentSettingsUpdate('cod_enabled', checked)}
-                  />
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white rounded-lg shadow border border-border p-6">
+                <h2 className="text-2xl font-bold text-navy-deep mb-6">Payment Methods</h2>
                 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <label className="text-base font-medium">Online Payment</label>
-                    <p className="text-sm text-gray-500">
-                      Allow customers to pay online using Razorpay (cards, UPI, wallets, etc.)
-                    </p>
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <label className="text-base font-medium">Cash on Delivery (COD)</label>
+                      <p className="text-sm text-gray-500">
+                        Allow customers to pay with cash when the order is delivered
+                      </p>
+                    </div>
+                    <Switch
+                      checked={paymentSettings?.cod_enabled || false}
+                      onCheckedChange={(checked) => handlePaymentSettingsUpdate('cod_enabled', checked)}
+                    />
                   </div>
-                  <Switch
-                    checked={paymentSettings?.online_payment_enabled || false}
-                    onCheckedChange={(checked) => handlePaymentSettingsUpdate('online_payment_enabled', checked)}
-                  />
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <label className="text-base font-medium">Online Payment</label>
+                      <p className="text-sm text-gray-500">
+                        Allow customers to pay online using Razorpay (cards, UPI, wallets, etc.)
+                      </p>
+                    </div>
+                    <Switch
+                      checked={paymentSettings?.online_payment_enabled || false}
+                      onCheckedChange={(checked) => handlePaymentSettingsUpdate('online_payment_enabled', checked)}
+                    />
+                  </div>
                 </div>
+
+                {(!paymentSettings?.cod_enabled && !paymentSettings?.online_payment_enabled) && (
+                  <div className="mt-4 p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded">
+                    <strong>Warning:</strong> At least one payment method should be enabled for customers to place orders.
+                  </div>
+                )}
               </div>
 
-              {(!paymentSettings?.cod_enabled && !paymentSettings?.online_payment_enabled) && (
-                <div className="mt-4 p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded">
-                  <strong>Warning:</strong> At least one payment method should be enabled for customers to place orders.
-                </div>
-              )}
+              <PaymentCollectionSettings />
             </div>
           </TabsContent>
         </Tabs>

@@ -1,4 +1,3 @@
-
 export interface Product {
   id: string;
   name: string;
@@ -12,8 +11,16 @@ export interface Product {
   in_stock: boolean;
   rating: number;
   reviews: number;
+  moq?: number;
+  additional_charges?: AdditionalCharge[];
   created_at?: string;
   updated_at?: string;
+}
+
+export interface AdditionalCharge {
+  name: string;
+  amount: number;
+  description?: string;
 }
 
 export interface CartItem extends Product {
@@ -127,4 +134,12 @@ export interface CouponValidation {
     type: string;
     value: number;
   };
+}
+
+export interface PaymentCollectionSettings {
+  id: string;
+  collect_shipping_upfront: boolean;
+  collect_other_charges_upfront: boolean;
+  shipping_charge: number;
+  updated_at: string;
 }
