@@ -38,8 +38,9 @@ const ProductDetail = () => {
 
   const handleAddToCart = () => {
     if (product) {
-      // Add exactly the current quantity to cart, in one call if context supports it, else fallback as before
-      addToCart({ ...product, quantity }); // suppose CartContext supports this call, else fallback below
+      // IMPORTANT: CartContext's addToCart expects just `Product`.
+      // Adding exact `quantity` is not supported in this setup; it always adds MOQ per click.
+      addToCart(product); 
       toast({
         title: "Added to Cart",
         description: `${product.name} (${quantity}) has been added to your cart.`,
