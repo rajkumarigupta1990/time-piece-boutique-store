@@ -48,8 +48,8 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
   const shippingCharge = paymentCollectionSettings?.shipping_charge || 50;
   const shouldCollectShippingUpfront = paymentCollectionSettings?.collect_shipping_upfront || false;
   
-  // Add shipping to total if collecting upfront OR if payment method is online
-  const includeShippingInTotal = shouldCollectShippingUpfront || selectedPaymentMethod === 'online';
+  // Always include shipping in total if collecting upfront, regardless of payment method
+  const includeShippingInTotal = shouldCollectShippingUpfront;
   const totalWithShipping = includeShippingInTotal ? subtotal + shippingCharge : subtotal;
   const finalTotal = totalWithShipping - discountAmount;
 
@@ -389,7 +389,7 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
               
               <div className="flex justify-between items-center text-lg font-semibold border-t pt-2">
                 <span>Total:</span>
-                <span className="text-luxury-gold">{formatPrice(subtotal + shippingCharge - discountAmount)}</span>
+                <span className="text-luxury-gold">{formatPrice(finalTotal)}</span>
               </div>
             </div>
             
@@ -533,7 +533,10 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
               
               <div className="flex justify-between text-sm">
                 <span>Shipping:</span>
-                <span>{formatPrice(shippingCharge)}</span>
+                <span>
+                  {includeShippingInTotal ? formatPrice(shippingCharge) : 
+                   'Collected at delivery'}
+                </span>
               </div>
               
               {appliedCoupon && (
@@ -545,7 +548,7 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
               
               <div className="flex justify-between items-center text-lg font-semibold border-t pt-2">
                 <span>Total:</span>
-                <span className="text-luxury-gold">{formatPrice(subtotal + shippingCharge - discountAmount)}</span>
+                <span className="text-luxury-gold">{formatPrice(finalTotal)}</span>
               </div>
               
               <Button
