@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Plus, Edit, Trash2, Save, X, Package, MessageSquare, Users, Settings, Ticket, BarChart3 } from 'lucide-react';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '@/hooks/useProducts';
@@ -18,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import CouponManagement from '@/components/CouponManagement';
 import PaymentCollectionSettings from '@/components/PaymentCollectionSettings';
 import AdminDashboard from '@/components/AdminDashboard';
+import OrderDetailCard from '@/components/OrderDetailCard';
 
 const Admin = () => {
   const { toast } = useToast();
@@ -497,31 +497,24 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="orders" className="space-y-6">
-            <div className="bg-white rounded-lg shadow border border-border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold text-navy-deep">Order Management</h2>
+              <p className="text-gray-600">
+                Detailed view of all orders with products, payment status, and customer information
+              </p>
+              
+              {orders.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  No orders found
+                </div>
+              ) : (
+                <div className="space-y-4">
                   {orders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-mono text-sm">{order.id.slice(0, 8)}</TableCell>
-                      <TableCell>{formatPrice(order.total_amount)}</TableCell>
-                      <TableCell>
-                        <Badge variant={order.status === 'confirmed' ? 'default' : 'secondary'}>
-                          {order.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{order.order_items?.length || 0} items</TableCell>
-                      <TableCell>{formatDate(order.created_at)}</TableCell>
-                      <TableCell>
+                    <div key={order.id} className="relative">
+                      <OrderDetailCard order={order} />
+                      
+                      {/* Status Update Section */}
+                      <div className="absolute top-4 right-4">
                         <Select
                           value={order.status}
                           onValueChange={(value) => handleOrderStatusUpdate(order.id, value as Order['status'])}
@@ -538,11 +531,11 @@ const Admin = () => {
                             <SelectItem value="cancelled">Cancelled</SelectItem>
                           </SelectContent>
                         </Select>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              )}
             </div>
           </TabsContent>
 

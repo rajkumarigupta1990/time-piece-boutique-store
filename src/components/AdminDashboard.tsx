@@ -29,7 +29,7 @@ const AdminDashboard = () => {
   const filteredOrders = getFilteredOrders();
 
   // Calculate metrics
-  const totalRevenue = filteredOrders.reduce((sum, order) => sum + order.total_amount, 0);
+  const totalRevenue = filteredOrders.reduce((sum, order) => sum + Number(order.total_amount), 0);
   const totalOrders = filteredOrders.length;
   const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
   const totalProducts = products.length;
@@ -53,7 +53,7 @@ const AdminDashboard = () => {
         return format(orderDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
       });
       
-      const revenue = dayOrders.reduce((sum, order) => sum + order.total_amount, 0);
+      const revenue = dayOrders.reduce((sum, order) => sum + Number(order.total_amount), 0);
       
       data.push({
         date: format(date, 'MMM dd'),
@@ -81,7 +81,7 @@ const AdminDashboard = () => {
         }
         
         productSales[productId].quantity += item.quantity;
-        productSales[productId].revenue += item.price * item.quantity;
+        productSales[productId].revenue += Number(item.price) * item.quantity;
       });
     });
     
@@ -205,7 +205,7 @@ const AdminDashboard = () => {
                     content={
                       <ChartTooltipContent 
                         formatter={(value, name) => [
-                          name === 'revenue' ? formatPrice(Number(value)) : value,
+                          name === 'revenue' ? formatPrice(Number(value)) : String(value),
                           name === 'revenue' ? 'Revenue' : 'Orders'
                         ]}
                       />
