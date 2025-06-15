@@ -1,26 +1,22 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { createClient } from '@supabase/supabase-js';
 import { Coupon, CouponValidation } from '@/types';
 
-// Create a service role client for admin operations
-const supabaseAdmin = createClient(
-  'https://rhbpyacohntcqlszgvle.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTI0MDkyMCwiZXhwIjoyMDY0ODE2OTIwfQ.s1wGVuFqgXSNcB_tBh0SkI7QaIuAH0rOG2p32VdY9-M'
-);
+const callAdminCouponFunction = async (method: string, data?: any) => {
+  const { data: result, error } = await supabase.functions.invoke('admin-coupons', {
+    body: { method, ...data }
+  });
+  
+  if (error) throw error;
+  return result;
+};
 
 export const useCoupons = () => {
   return useQuery({
     queryKey: ['coupons'],
     queryFn: async () => {
-      const { data, error } = await supabaseAdmin
-        .from('coupons')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data as Coupon[];
+      return await callAdminCouponFunction('list');
     },
   });
 };
@@ -30,19 +26,7 @@ export const useCreateCoupon = () => {
   
   return useMutation({
     mutationFn: async (coupon: Omit<Coupon, 'id' | 'current_uses' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await supabaseAdmin
-        .from('coupons')
-        .insert({
-          ...coupon,
-          current_uses: 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
+      return await callAdminCouponFunction('create', { couponData: coupon });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coupons'] });
@@ -55,18 +39,7 @@ export const useUpdateCoupon = () => {
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Coupon> & { id: string }) => {
-      const { data, error } = await supabaseAdmin
-        .from('coupons')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
+      return await callAdminCouponFunction('update', { couponData: updates, couponId: id });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coupons'] });
@@ -79,12 +52,7 @@ export const useDeleteCoupon = () => {
   
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabaseAdmin
-        .from('coupons')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
+      return await callAdminCouponFunction('delete', { couponId: id });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coupons'] });
