@@ -1,7 +1,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Product } from '@/types';
+import { Product, AdditionalCharge } from '@/types';
 
 export const useProducts = () => {
   return useQuery({
@@ -13,7 +13,12 @@ export const useProducts = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as Product[];
+      
+      // Convert database records to Product type
+      return data.map(item => ({
+        ...item,
+        additional_charges: (item.additional_charges as AdditionalCharge[]) || []
+      })) as Product[];
     },
   });
 };
@@ -29,7 +34,12 @@ export const useProduct = (id: string) => {
         .single();
       
       if (error) throw error;
-      return data as Product;
+      
+      // Convert database record to Product type
+      return {
+        ...data,
+        additional_charges: (data.additional_charges as AdditionalCharge[]) || []
+      } as Product;
     },
   });
 };
@@ -39,14 +49,25 @@ export const useCreateProduct = () => {
   
   return useMutation({
     mutationFn: async (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
+      // Convert Product type to database compatible format
+      const dbProduct = {
+        ...product,
+        additional_charges: product.additional_charges as any
+      };
+      
       const { data, error } = await supabase
         .from('products')
-        .insert(product)
+        .insert(dbProduct)
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      
+      // Convert back to Product type
+      return {
+        ...data,
+        additional_charges: (data.additional_charges as AdditionalCharge[]) || []
+      } as Product;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -59,15 +80,26 @@ export const useUpdateProduct = () => {
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Product> & { id: string }) => {
+      // Convert Product type to database compatible format
+      const dbUpdates = {
+        ...updates,
+        additional_charges: updates.additional_charges as any
+      };
+      
       const { data, error } = await supabase
         .from('products')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', id)
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      
+      // Convert back to Product type
+      return {
+        ...data,
+        additional_charges: (data.additional_charges as AdditionalCharge[]) || []
+      } as Product;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
