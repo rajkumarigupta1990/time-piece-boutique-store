@@ -47,13 +47,45 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
   // Calculate shipping charges based on payment collection settings
   const shippingCharge = paymentCollectionSettings?.shipping_charge || 50;
   const shouldCollectShippingUpfront = paymentCollectionSettings?.collect_shipping_upfront || false;
+  const shouldCollectOtherChargesUpfront = paymentCollectionSettings?.collect_other_charges_upfront || false;
   
-  // Always include shipping in total if collecting upfront, regardless of payment method
-  const includeShippingInTotal = shouldCollectShippingUpfront;
-  const totalWithShipping = includeShippingInTotal ? subtotal + shippingCharge : subtotal;
-  const finalTotal = totalWithShipping - discountAmount;
+  // Calculate what gets collected upfront vs at delivery for COD
+  const getPaymentBreakdown = () => {
+    const orderTotal = subtotal - discountAmount;
+    
+    if (selectedPaymentMethod === 'online') {
+      // Online payment: collect everything upfront
+      return {
+        payableNow: orderTotal + shippingCharge,
+        payableAtDelivery: 0,
+        totalAmount: orderTotal + shippingCharge
+      };
+    } else {
+      // COD: calculate what to collect upfront
+      let upfrontAmount = 0;
+      
+      if (shouldCollectShippingUpfront) {
+        upfrontAmount += shippingCharge;
+      }
+      
+      // Add other charges if needed (for future use)
+      if (shouldCollectOtherChargesUpfront) {
+        // Add any other charges here when implemented
+      }
+      
+      const deliveryAmount = orderTotal + (shouldCollectShippingUpfront ? 0 : shippingCharge);
+      
+      return {
+        payableNow: upfrontAmount,
+        payableAtDelivery: deliveryAmount,
+        totalAmount: orderTotal + shippingCharge
+      };
+    }
+  };
 
-  // New helper: Create Razorpay order for either shipping charge or full order
+  const paymentBreakdown = getPaymentBreakdown();
+
+  // Create Razorpay order for either shipping charge or full order
   const createRazorpayOrder = async ({
       amount,
       shippingAddress,
@@ -72,9 +104,8 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
       codShippingOnly?: boolean,
     }
   ) => {
-    // For COD-with-shipping, send a marker to backend (so backend knows this is only shipping)
     const requestBody = {
-      items: codShippingOnly ? [] : items, // For shipping payments, no order items
+      items: codShippingOnly ? [] : items,
       shippingAddress,
       totalAmount: amount,
       paymentMethod,
@@ -83,7 +114,6 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
       codShippingOnly,
     };
 
-    // Always call the same endpoint
     const response = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
       method: 'POST',
       headers: { 
@@ -94,24 +124,22 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Failed to create order');
-    return result; // Razorpay order details
+    return result;
   };
 
-  // New: COD shipping charge upfront flow
   const [isPayingShipping, setIsPayingShipping] = useState(false);
 
-  // New main handler - refactor for clarity and correct flow!
   const handleShippingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCheckingOut(true);
 
-    // Helper for successful shipping upfront payment before placing actual COD order
-    async function handleCodShippingUpfront() {
+    // COD with upfront shipping collection
+    if (selectedPaymentMethod === 'cod' && paymentBreakdown.payableNow > 0) {
       setIsPayingShipping(true);
       try {
-        // 1. Create a Razorpay order for just the shipping charge
+        // 1. Create a Razorpay order for just the upfront charges
         const rpResult = await createRazorpayOrder({
-          amount: shippingCharge,
+          amount: paymentBreakdown.payableNow,
           shippingAddress,
           paymentMethod: 'cod',
           items: [],
@@ -124,12 +152,12 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
           key: rpResult.key,
           amount: rpResult.amount,
           currency: rpResult.currency,
-          name: 'Shipping Charge',
-          description: 'Shipping payment for COD order',
+          name: 'Upfront Charges',
+          description: 'Shipping and other charges for COD order',
           order_id: rpResult.razorpayOrderId,
           handler: async (response: any) => {
-            // 2. Verify shipping payment
             try {
+              // 2. Verify upfront payment
               await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/verify-payment', {
                 method: 'POST',
                 headers: { 
@@ -143,16 +171,17 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
                 })
               });
 
-              // 3. Place COD order for the remaining items (without shipping charge)
+              // 3. Place COD order for the remaining items
               const codOrderBody = {
                 items: cartItems,
                 shippingAddress,
-                totalAmount: finalTotal - shippingCharge, // Exclude shipping, already paid
+                totalAmount: paymentBreakdown.payableAtDelivery,
                 paymentMethod: 'cod',
                 couponCode: appliedCoupon?.coupon_data?.code,
                 discountAmount,
-                codShippingUpfrontPaid: true, // Just for possible backend reference
+                codShippingUpfrontPaid: true,
               };
+              
               const codResp = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
                 method: 'POST',
                 headers: { 
@@ -161,12 +190,15 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
                 },
                 body: JSON.stringify(codOrderBody)
               });
+              
               const codResult = await codResp.json();
-              if (!codResp.ok) throw new Error(codResult.error || 'Failed to place COD order after shipping payment');
+              if (!codResp.ok) throw new Error(codResult.error || 'Failed to place COD order after upfront payment');
+              
               toast({
                 title: "Order Placed!",
-                description: "Shipping charge collected. Remaining to be paid at delivery.",
+                description: `Upfront charges collected: ${formatPrice(paymentBreakdown.payableNow)}. Remaining ${formatPrice(paymentBreakdown.payableAtDelivery)} to be paid at delivery.`,
               });
+              
               clearCart();
               setAppliedCoupon(null);
               setCouponCode('');
@@ -194,35 +226,29 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
         razorpay.open();
       } catch (error) {
         toast({
-          title: "Shipping Payment Failed",
+          title: "Upfront Payment Failed",
           description: error instanceof Error ? error.message : "Please try again.",
           variant: "destructive"
         });
         setIsPayingShipping(false);
       }
       setIsCheckingOut(false);
-    }
-
-    // COD, shipping upfront, process above flow
-    if (selectedPaymentMethod === 'cod' && includeShippingInTotal) {
-      // Don't place order directly, first collect shipping payment!
-      await handleCodShippingUpfront();
       return;
     }
 
     try {
-      // Online payment or simple COD without shipping upfront
+      // Handle other payment scenarios
       const orderData = {
         items: cartItems,
         shippingAddress,
-        totalAmount: finalTotal,
+        totalAmount: paymentBreakdown.totalAmount,
         paymentMethod: selectedPaymentMethod,
         couponCode: appliedCoupon?.coupon_data?.code,
         discountAmount: discountAmount,
       };
 
       if (selectedPaymentMethod === 'cod') {
-        // COD, but shipping not collected upfront
+        // Simple COD without upfront collection
         const response = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
           method: 'POST',
           headers: { 
@@ -233,16 +259,13 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
         });
 
         const result = await response.json();
-
         if (!response.ok) {
           throw new Error(result.error || 'Failed to create order');
         }
 
         toast({
           title: "Order Placed Successfully!",
-          description: includeShippingInTotal ? 
-            "Your COD order has been placed with shipping charges already collected." :
-            "Your COD order has been placed. Shipping charges will be collected at delivery.",
+          description: `Your COD order has been placed. Total ${formatPrice(paymentBreakdown.totalAmount)} to be paid at delivery.`,
         });
 
         clearCart();
@@ -253,7 +276,7 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
       } else {
         // Handle online (full) payment
         const result = await createRazorpayOrder({
-          amount: finalTotal,
+          amount: paymentBreakdown.totalAmount,
           shippingAddress,
           paymentMethod: 'online',
           items: cartItems,
@@ -385,7 +408,6 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
       return;
     }
 
-    // Check if any payment method is enabled
     const codEnabled = paymentSettings?.cod_enabled || false;
     const onlineEnabled = paymentSettings?.online_payment_enabled || false;
     
@@ -398,7 +420,6 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
       return;
     }
 
-    // Set default payment method based on what's available
     if (onlineEnabled && !codEnabled) {
       setSelectedPaymentMethod('online');
     } else if (codEnabled && !onlineEnabled) {
@@ -412,7 +433,6 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
     const item = cartItems.find(item => item.id === productId);
     const moq = item?.moq || 1;
     
-    // Ensure quantity doesn't go below MOQ
     if (newQuantity < moq) {
       toast({
         title: "Minimum Order Quantity",
@@ -481,6 +501,7 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
               onChange={(e) => setShippingAddress(prev => ({ ...prev, pincode: e.target.value }))}
               required
             />
+            
             {/* Payment Method Selection */}
             {codEnabled && onlineEnabled && (
               <div className="space-y-3">
@@ -511,6 +532,7 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
                 </div>
               </div>
             )}
+            
             {/* Order Summary in Checkout */}
             <div className="border-t pt-4 space-y-2 bg-gray-50 p-3 rounded">
               <div className="flex justify-between text-sm">
@@ -520,10 +542,7 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
               
               <div className="flex justify-between text-sm">
                 <span>Shipping:</span>
-                <span>
-                  {includeShippingInTotal ? formatPrice(shippingCharge) : 
-                   'Collected at delivery'}
-                </span>
+                <span>{formatPrice(shippingCharge)}</span>
               </div>
               
               {appliedCoupon && (
@@ -533,9 +552,25 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
                 </div>
               )}
               
+              {/* Show payment breakdown for COD */}
+              {selectedPaymentMethod === 'cod' && paymentBreakdown.payableNow > 0 && (
+                <>
+                  <div className="border-t pt-2 mt-2">
+                    <div className="flex justify-between text-sm font-medium text-blue-600">
+                      <span>Payable Now:</span>
+                      <span>{formatPrice(paymentBreakdown.payableNow)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-medium text-orange-600">
+                      <span>Payable at Delivery:</span>
+                      <span>{formatPrice(paymentBreakdown.payableAtDelivery)}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+              
               <div className="flex justify-between items-center text-lg font-semibold border-t pt-2">
                 <span>Total:</span>
-                <span className="text-luxury-gold">{formatPrice(finalTotal)}</span>
+                <span className="text-luxury-gold">{formatPrice(paymentBreakdown.totalAmount)}</span>
               </div>
             </div>
             
@@ -554,8 +589,11 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
                 className="flex-1 bg-luxury-gold hover:bg-luxury-gold/90 text-navy-deep"
               >
                 {isCheckingOut ? 'Processing...' : 
-                 selectedPaymentMethod === 'cod' ? `Place COD Order ${formatPrice(finalTotal)}` : 
-                 `Pay ${formatPrice(finalTotal)}`}
+                 selectedPaymentMethod === 'cod' && paymentBreakdown.payableNow > 0 ? 
+                   `Pay Now ${formatPrice(paymentBreakdown.payableNow)}` :
+                 selectedPaymentMethod === 'cod' ? 
+                   `Place COD Order ${formatPrice(paymentBreakdown.totalAmount)}` : 
+                   `Pay ${formatPrice(paymentBreakdown.totalAmount)}`}
               </Button>
             </div>
           </form>
@@ -679,10 +717,7 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
               
               <div className="flex justify-between text-sm">
                 <span>Shipping:</span>
-                <span>
-                  {includeShippingInTotal ? formatPrice(shippingCharge) : 
-                   'Collected at delivery'}
-                </span>
+                <span>{formatPrice(shippingCharge)}</span>
               </div>
               
               {appliedCoupon && (
@@ -694,7 +729,7 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
               
               <div className="flex justify-between items-center text-lg font-semibold border-t pt-2">
                 <span>Total:</span>
-                <span className="text-luxury-gold">{formatPrice(finalTotal)}</span>
+                <span className="text-luxury-gold">{formatPrice(paymentBreakdown.totalAmount)}</span>
               </div>
               
               <Button
