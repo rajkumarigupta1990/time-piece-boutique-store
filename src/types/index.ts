@@ -29,18 +29,17 @@ export interface CartItem extends Product {
 
 export interface Order {
   id: string;
-  user_id?: string;
   total_amount: number;
-  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
-  payment_method?: 'online' | 'cod';
-  razorpay_order_id?: string;
-  razorpay_payment_id?: string;
   shipping_address: ShippingAddress;
-  coupon_id?: string;
-  coupon_code?: string;
-  discount_amount?: number;
   created_at: string;
   updated_at: string;
+  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  discount_amount?: number;
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  coupon_code?: string;
+  user_id?: string;
+  order_items?: OrderItem[];
 }
 
 export interface OrderItem {

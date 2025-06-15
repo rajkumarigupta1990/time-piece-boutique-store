@@ -89,33 +89,51 @@ const OrderDetailCard = ({ order }: OrderDetailCardProps) => {
       
       <CardContent className="space-y-6">
         {/* Products Section */}
-        <div>
-          <h4 className="font-semibold flex items-center gap-2 mb-3">
-            <Package className="w-4 h-4" />
-            Products ({order.order_items?.length || 0} items)
-          </h4>
-          <div className="space-y-2">
-            {order.order_items?.map((item, index) => (
-              <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <div className="font-medium">{item.product?.name || 'Unknown Product'}</div>
-                  <div className="text-sm text-gray-500">
-                    Brand: {item.product?.brand || 'Unknown'}
+        {order.order_items && order.order_items.length > 0 && (
+          <div>
+            <h4 className="font-semibold flex items-center gap-2 mb-3">
+              <Package className="w-4 h-4" />
+              Products ({order.order_items.length} items)
+            </h4>
+            <div className="space-y-2">
+              {order.order_items.map((item, index) => (
+                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <div className="font-medium">{item.product?.name || 'Unknown Product'}</div>
+                    <div className="text-sm text-gray-500">
+                      Brand: {item.product?.brand || 'Unknown'}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-medium">Qty: {item.quantity}</div>
+                    <div className="text-sm text-gray-500">
+                      {formatPrice(Number(item.price))} each
+                    </div>
+                  </div>
+                  <div className="ml-4 font-semibold">
+                    {formatPrice(Number(item.price) * item.quantity)}
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-medium">Qty: {item.quantity}</div>
-                  <div className="text-sm text-gray-500">
-                    {formatPrice(Number(item.price))} each
-                  </div>
-                </div>
-                <div className="ml-4 font-semibold">
-                  {formatPrice(Number(item.price) * item.quantity)}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Special case for shipping-only orders */}
+        {order.coupon_code === 'SHIPPING_ONLY' && (
+          <div>
+            <h4 className="font-semibold flex items-center gap-2 mb-3">
+              <Package className="w-4 h-4" />
+              Order Type
+            </h4>
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <div className="font-medium text-blue-800">Shipping Charges Payment</div>
+              <div className="text-sm text-blue-600">
+                This is an upfront payment for shipping charges on a COD order.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Payment Information */}
         <div>
@@ -145,7 +163,7 @@ const OrderDetailCard = ({ order }: OrderDetailCardProps) => {
                   <span className="font-semibold text-green-600">
                     -{formatPrice(Number(order.discount_amount))}
                   </span>
-                  {order.coupon_code && (
+                  {order.coupon_code && order.coupon_code !== 'SHIPPING_ONLY' && (
                     <Badge variant="outline">{order.coupon_code}</Badge>
                   )}
                 </div>
@@ -266,10 +284,10 @@ Date: ${formatDate(order.created_at)}
 Status: ${order.status}
 Payment Status: ${paymentStatus.status}
 
-Products:
-${order.order_items?.map(item => 
+${order.order_items && order.order_items.length > 0 ? `Products:
+${order.order_items.map(item => 
   `- ${item.product?.name || 'Unknown'} (${item.product?.brand || 'Unknown'}) - Qty: ${item.quantity} - ${formatPrice(Number(item.price))} each`
-).join('\n') || 'No items'}
+).join('\n')}` : 'No items listed'}
 
 Payment:
 Total: ${formatPrice(Number(order.total_amount))}

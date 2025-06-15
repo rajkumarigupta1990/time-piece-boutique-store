@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -27,7 +28,6 @@ const ShippingForm = ({
   const { cartItems, getCartTotal, clearCart } = useCart();
   const { toast } = useToast();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
-  const [isPayingShipping, setIsPayingShipping] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'online' | 'cod'>('online');
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
     name: '',
@@ -137,12 +137,17 @@ const ShippingForm = ({
 
   const handleShippingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent multiple submissions
+    if (isCheckingOut) {
+      return;
+    }
+    
     setIsCheckingOut(true);
 
-    // COD with upfront shipping collection
-    if (selectedPaymentMethod === 'cod' && paymentBreakdown.payableNow > 0) {
-      setIsPayingShipping(true);
-      try {
+    try {
+      // COD with upfront shipping collection
+      if (selectedPaymentMethod === 'cod' && paymentBreakdown.payableNow > 0) {
         const rpResult = await createRazorpayOrder({
           amount: paymentBreakdown.payableNow,
           shippingAddress,
@@ -205,13 +210,18 @@ const ShippingForm = ({
               clearCart();
               onClose();
             } catch (err) {
+              console.error('COD Order Error:', err);
               toast({
                 title: "COD Order Failed",
                 description: err instanceof Error ? err.message : "Please contact support.",
                 variant: "destructive"
               });
             }
-            setIsPayingShipping(false);
+          },
+          modal: {
+            ondismiss: () => {
+              setIsCheckingOut(false);
+            }
           },
           prefill: {
             name: shippingAddress.name,
@@ -224,19 +234,9 @@ const ShippingForm = ({
         };
         const razorpay = new (window as any).Razorpay(options);
         razorpay.open();
-      } catch (error) {
-        toast({
-          title: "Upfront Payment Failed",
-          description: error instanceof Error ? error.message : "Please try again.",
-          variant: "destructive"
-        });
-        setIsPayingShipping(false);
+        return;
       }
-      setIsCheckingOut(false);
-      return;
-    }
 
-    try {
       const orderData = {
         items: cartItems,
         shippingAddress,
@@ -308,11 +308,17 @@ const ShippingForm = ({
               clearCart();
               onClose();
             } catch (error) {
+              console.error('Payment Verification Error:', error);
               toast({
                 title: "Payment Verification Failed",
                 description: "Please contact support.",
                 variant: "destructive"
               });
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              setIsCheckingOut(false);
             }
           },
           prefill: {
@@ -329,6 +335,7 @@ const ShippingForm = ({
         razorpay.open();
       }
     } catch (error) {
+      console.error('Checkout Error:', error);
       toast({
         title: "Checkout Failed",
         description: error instanceof Error ? error.message : "Please try again.",
@@ -343,127 +350,130 @@ const ShippingForm = ({
   const onlineEnabled = paymentSettings?.online_payment_enabled || false;
 
   return (
-    <DialogContent className="max-w-md">
+    <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Shipping Details & Payment</DialogTitle>
       </DialogHeader>
-      <form onSubmit={handleShippingSubmit} className="space-y-4">
-        <Input
-          placeholder="Full Name"
-          value={shippingAddress.name}
-          onChange={(e) => setShippingAddress(prev => ({ ...prev, name: e.target.value }))}
-          required
-        />
-        <Input
-          placeholder="Email"
-          type="email"
-          value={shippingAddress.email}
-          onChange={(e) => setShippingAddress(prev => ({ ...prev, email: e.target.value }))}
-          required
-        />
-        <Input
-          placeholder="Phone"
-          value={shippingAddress.phone}
-          onChange={(e) => setShippingAddress(prev => ({ ...prev, phone: e.target.value }))}
-          required
-        />
-        <Input
-          placeholder="Address"
-          value={shippingAddress.address}
-          onChange={(e) => setShippingAddress(prev => ({ ...prev, address: e.target.value }))}
-          required
-        />
-        <div className="grid grid-cols-2 gap-2">
+      <div className="max-h-[calc(80vh-120px)] overflow-y-auto">
+        <form onSubmit={handleShippingSubmit} className="space-y-4">
           <Input
-            placeholder="City"
-            value={shippingAddress.city}
-            onChange={(e) => setShippingAddress(prev => ({ ...prev, city: e.target.value }))}
+            placeholder="Full Name"
+            value={shippingAddress.name}
+            onChange={(e) => setShippingAddress(prev => ({ ...prev, name: e.target.value }))}
             required
           />
           <Input
-            placeholder="State"
-            value={shippingAddress.state}
-            onChange={(e) => setShippingAddress(prev => ({ ...prev, state: e.target.value }))}
+            placeholder="Email"
+            type="email"
+            value={shippingAddress.email}
+            onChange={(e) => setShippingAddress(prev => ({ ...prev, email: e.target.value }))}
             required
           />
-        </div>
-        <Input
-          placeholder="Pincode"
-          value={shippingAddress.pincode}
-          onChange={(e) => setShippingAddress(prev => ({ ...prev, pincode: e.target.value }))}
-          required
-        />
-        
-        {codEnabled && onlineEnabled && (
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">Payment Method</label>
-            <div className="space-y-2">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="online"
-                  checked={selectedPaymentMethod === 'online'}
-                  onChange={(e) => setSelectedPaymentMethod(e.target.value as 'online' | 'cod')}
-                  className="mr-2"
-                />
-                Online Payment (Cards, UPI, Wallets)
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="cod"
-                  checked={selectedPaymentMethod === 'cod'}
-                  onChange={(e) => setSelectedPaymentMethod(e.target.value as 'online' | 'cod')}
-                  className="mr-2"
-                />
-                Cash on Delivery (COD)
-              </label>
-            </div>
+          <Input
+            placeholder="Phone"
+            value={shippingAddress.phone}
+            onChange={(e) => setShippingAddress(prev => ({ ...prev, phone: e.target.value }))}
+            required
+          />
+          <Input
+            placeholder="Address"
+            value={shippingAddress.address}
+            onChange={(e) => setShippingAddress(prev => ({ ...prev, address: e.target.value }))}
+            required
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              placeholder="City"
+              value={shippingAddress.city}
+              onChange={(e) => setShippingAddress(prev => ({ ...prev, city: e.target.value }))}
+              required
+            />
+            <Input
+              placeholder="State"
+              value={shippingAddress.state}
+              onChange={(e) => setShippingAddress(prev => ({ ...prev, state: e.target.value }))}
+              required
+            />
           </div>
-        )}
-        
-        <div className="bg-gray-50 p-3 rounded">
-          <OrderSummary
-            subtotal={subtotal}
-            shippingCharge={paymentBreakdown.shippingCharge}
-            otherCharges={paymentBreakdown.otherCharges}
-            discountAmount={discountAmount}
-            totalAmount={paymentBreakdown.totalAmount}
-            payableNow={paymentBreakdown.payableNow}
-            payableAtDelivery={paymentBreakdown.payableAtDelivery}
-            selectedPaymentMethod={selectedPaymentMethod}
-            showPaymentBreakdown={true}
-            onCheckout={() => {}}
-            isCheckingOut={false}
-            formatPrice={formatPrice}
+          <Input
+            placeholder="Pincode"
+            value={shippingAddress.pincode}
+            onChange={(e) => setShippingAddress(prev => ({ ...prev, pincode: e.target.value }))}
+            required
           />
-        </div>
-        
-        <div className="flex space-x-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onBack}
-            className="flex-1"
-          >
-            Back
-          </Button>
-          <Button
-            type="submit"
-            disabled={isCheckingOut}
-            className="flex-1 bg-luxury-gold hover:bg-luxury-gold/90 text-navy-deep"
-          >
-            {isCheckingOut ? 'Processing...' : 
-             selectedPaymentMethod === 'cod' && paymentBreakdown.payableNow > 0 ? 
-               `Pay Now ${formatPrice(paymentBreakdown.payableNow)}` :
-             selectedPaymentMethod === 'cod' ? 
-               `Place COD Order ${formatPrice(paymentBreakdown.totalAmount)}` : 
-               `Pay ${formatPrice(paymentBreakdown.totalAmount)}`}
-          </Button>
-        </div>
-      </form>
+          
+          {codEnabled && onlineEnabled && (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">Payment Method</label>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="online"
+                    checked={selectedPaymentMethod === 'online'}
+                    onChange={(e) => setSelectedPaymentMethod(e.target.value as 'online' | 'cod')}
+                    className="mr-2"
+                  />
+                  Online Payment (Cards, UPI, Wallets)
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="cod"
+                    checked={selectedPaymentMethod === 'cod'}
+                    onChange={(e) => setSelectedPaymentMethod(e.target.value as 'online' | 'cod')}
+                    className="mr-2"
+                  />
+                  Cash on Delivery (COD)
+                </label>
+              </div>
+            </div>
+          )}
+          
+          <div className="bg-gray-50 p-3 rounded">
+            <OrderSummary
+              subtotal={subtotal}
+              shippingCharge={paymentBreakdown.shippingCharge}
+              otherCharges={paymentBreakdown.otherCharges}
+              discountAmount={discountAmount}
+              totalAmount={paymentBreakdown.totalAmount}
+              payableNow={paymentBreakdown.payableNow}
+              payableAtDelivery={paymentBreakdown.payableAtDelivery}
+              selectedPaymentMethod={selectedPaymentMethod}
+              showPaymentBreakdown={true}
+              onCheckout={() => {}}
+              isCheckingOut={false}
+              formatPrice={formatPrice}
+            />
+          </div>
+          
+          <div className="flex space-x-2 sticky bottom-0 bg-white pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onBack}
+              className="flex-1"
+              disabled={isCheckingOut}
+            >
+              Back
+            </Button>
+            <Button
+              type="submit"
+              disabled={isCheckingOut}
+              className="flex-1 bg-luxury-gold hover:bg-luxury-gold/90 text-navy-deep"
+            >
+              {isCheckingOut ? 'Processing...' : 
+               selectedPaymentMethod === 'cod' && paymentBreakdown.payableNow > 0 ? 
+                 `Pay Now ${formatPrice(paymentBreakdown.payableNow)}` :
+               selectedPaymentMethod === 'cod' ? 
+                 `Place COD Order ${formatPrice(paymentBreakdown.totalAmount)}` : 
+                 `Pay ${formatPrice(paymentBreakdown.totalAmount)}`}
+            </Button>
+          </div>
+        </form>
+      </div>
     </DialogContent>
   );
 };
