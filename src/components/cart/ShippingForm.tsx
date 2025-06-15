@@ -16,7 +16,7 @@ interface ShippingFormProps {
   formatPrice: (price: number) => string;
 }
 
-const ShippingForm = ({ 
+const ShippingForm = ({
   paymentSettings, 
   paymentCollectionSettings, 
   appliedCoupon, 
@@ -39,20 +39,32 @@ const ShippingForm = ({
     pincode: ''
   });
 
+  // Calculate subtotal and other charges
   const subtotal = getCartTotal();
   const discountAmount = appliedCoupon?.discount_amount || 0;
   const shippingCharge = paymentCollectionSettings?.shipping_charge || 50;
   const shouldCollectShippingUpfront = paymentCollectionSettings?.collect_shipping_upfront || false;
   const shouldCollectOtherChargesUpfront = paymentCollectionSettings?.collect_other_charges_upfront || false;
-  
+
+  // Calculate total other charges from all cart items
+  const otherCharges = cartItems.reduce((acc, item) => {
+    const addCharges = Array.isArray(item.additional_charges)
+      ? item.additional_charges.reduce((sum, charge) => sum + (charge.amount || 0), 0)
+      : 0;
+    return acc + addCharges * item.quantity;
+  }, 0);
+
   const getPaymentBreakdown = () => {
     const orderTotal = subtotal - discountAmount;
     
     if (selectedPaymentMethod === 'online') {
+      // All paid upfront
       return {
-        payableNow: orderTotal + shippingCharge,
+        payableNow: orderTotal + shippingCharge + otherCharges,
         payableAtDelivery: 0,
-        totalAmount: orderTotal + shippingCharge
+        totalAmount: orderTotal + shippingCharge + otherCharges,
+        shippingCharge,
+        otherCharges,
       };
     } else {
       let upfrontAmount = 0;
@@ -60,17 +72,22 @@ const ShippingForm = ({
       if (shouldCollectShippingUpfront) {
         upfrontAmount += shippingCharge;
       }
-      
-      if (shouldCollectOtherChargesUpfront) {
-        // Add any other charges here when implemented
+      if (shouldCollectOtherChargesUpfront && otherCharges > 0) {
+        upfrontAmount += otherCharges;
       }
       
-      const deliveryAmount = orderTotal + (shouldCollectShippingUpfront ? 0 : shippingCharge);
+      // Deduct charges already paid upfront from the amount due at delivery
+      const deliveryAmount =
+        orderTotal +
+        (shouldCollectShippingUpfront ? 0 : shippingCharge) +
+        (shouldCollectOtherChargesUpfront ? 0 : otherCharges);
       
       return {
         payableNow: upfrontAmount,
         payableAtDelivery: deliveryAmount,
-        totalAmount: orderTotal + shippingCharge
+        totalAmount: orderTotal + shippingCharge + otherCharges,
+        shippingCharge,
+        otherCharges,
       };
     }
   };
@@ -410,7 +427,8 @@ const ShippingForm = ({
         <div className="bg-gray-50 p-3 rounded">
           <OrderSummary
             subtotal={subtotal}
-            shippingCharge={shippingCharge}
+            shippingCharge={paymentBreakdown.shippingCharge}
+            otherCharges={paymentBreakdown.otherCharges}
             discountAmount={discountAmount}
             totalAmount={paymentBreakdown.totalAmount}
             payableNow={paymentBreakdown.payableNow}
