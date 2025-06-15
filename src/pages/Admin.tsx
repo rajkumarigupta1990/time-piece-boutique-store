@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Save, X, Package, MessageSquare, Users, Settings } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, Package, MessageSquare, Users, Settings, Ticket } from 'lucide-react';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '@/hooks/useProducts';
 import { useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
 import { useContactQueries, useUpdateContactQueryStatus } from '@/hooks/useContactQueries';
@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import CouponManagement from '@/components/CouponManagement';
 
 const Admin = () => {
   const { toast } = useToast();
@@ -219,7 +220,7 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="products" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="products" className="flex items-center space-x-2">
               <Package className="w-4 h-4" />
               <span>Products ({products.length})</span>
@@ -227,6 +228,10 @@ const Admin = () => {
             <TabsTrigger value="orders" className="flex items-center space-x-2">
               <Users className="w-4 h-4" />
               <span>Orders ({orders.length})</span>
+            </TabsTrigger>
+            <TabsTrigger value="coupons" className="flex items-center space-x-2">
+              <Ticket className="w-4 h-4" />
+              <span>Coupons</span>
             </TabsTrigger>
             <TabsTrigger value="queries" className="flex items-center space-x-2">
               <MessageSquare className="w-4 h-4" />
@@ -477,6 +482,10 @@ const Admin = () => {
                 </TableBody>
               </Table>
             </div>
+          </TabsContent>
+
+          <TabsContent value="coupons" className="space-y-6">
+            <CouponManagement />
           </TabsContent>
 
           <TabsContent value="queries" className="space-y-6">

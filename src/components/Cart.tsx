@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { X, Minus, Plus, ShoppingCart } from 'lucide-react';
+import { X, Minus, Plus, ShoppingCart, Tag } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { usePaymentSettings } from '@/hooks/usePaymentSettings';
+import { useValidateCoupon } from '@/hooks/useCoupons';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ShippingAddress } from '@/types';
+import { ShippingAddress, CouponValidation } from '@/types';
 
 interface CartProps {
   isOpen: boolean;
@@ -16,10 +17,14 @@ interface CartProps {
 const Cart = ({ isOpen, onClose }: CartProps) => {
   const { cartItems, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
   const { data: paymentSettings } = usePaymentSettings();
+  const validateCoupon = useValidateCoupon();
   const { toast } = useToast();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showShippingForm, setShowShippingForm] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'online' | 'cod'>('online');
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponValidation | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
     name: '',
     email: '',
@@ -32,6 +37,60 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
 
   const formatPrice = (price: number) => {
     return `₹${price.toLocaleString('en-IN')}`;
+  };
+
+  const subtotal = getCartTotal();
+  const discountAmount = appliedCoupon?.discount_amount || 0;
+  const finalTotal = subtotal - discountAmount;
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a coupon code.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+    try {
+      const result = await validateCoupon.mutateAsync({
+        code: couponCode.trim(),
+        orderTotal: subtotal
+      });
+
+      if (result.is_valid) {
+        setAppliedCoupon(result);
+        toast({
+          title: "Coupon Applied!",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "Invalid Coupon",
+          description: result.message,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to validate coupon.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    toast({
+      title: "Coupon Removed",
+      description: "Coupon has been removed from your order.",
+    });
   };
 
   const handleCheckout = () => {
@@ -72,6 +131,15 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
     setIsCheckingOut(true);
 
     try {
+      const orderData = {
+        items: cartItems,
+        shippingAddress,
+        totalAmount: finalTotal,
+        paymentMethod: selectedPaymentMethod,
+        couponCode: appliedCoupon?.coupon_data?.code,
+        discountAmount: discountAmount
+      };
+
       if (selectedPaymentMethod === 'cod') {
         // Handle COD order
         const response = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
@@ -80,18 +148,13 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
           },
-          body: JSON.stringify({
-            items: cartItems,
-            shippingAddress,
-            totalAmount: getCartTotal(),
-            paymentMethod: 'cod'
-          })
+          body: JSON.stringify(orderData)
         });
 
-        const orderData = await response.json();
+        const result = await response.json();
 
         if (!response.ok) {
-          throw new Error(orderData.error || 'Failed to create order');
+          throw new Error(result.error || 'Failed to create order');
         }
 
         toast({
@@ -102,6 +165,8 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
         clearCart();
         onClose();
         setShowShippingForm(false);
+        setAppliedCoupon(null);
+        setCouponCode('');
       } else {
         // Handle online payment
         const response = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
@@ -110,28 +175,23 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
           },
-          body: JSON.stringify({
-            items: cartItems,
-            shippingAddress,
-            totalAmount: getCartTotal(),
-            paymentMethod: 'online'
-          })
+          body: JSON.stringify(orderData)
         });
 
-        const orderData = await response.json();
+        const result = await response.json();
 
         if (!response.ok) {
-          throw new Error(orderData.error || 'Failed to create order');
+          throw new Error(result.error || 'Failed to create order');
         }
 
         // Initialize Razorpay payment
         const options = {
-          key: orderData.key,
-          amount: orderData.amount,
-          currency: orderData.currency,
+          key: result.key,
+          amount: result.amount,
+          currency: result.currency,
           name: 'Luxury Watch Store',
           description: 'Purchase of luxury watches',
-          order_id: orderData.razorpayOrderId,
+          order_id: result.razorpayOrderId,
           handler: async (response: any) => {
             try {
               // Verify payment
@@ -144,7 +204,7 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
                 body: JSON.stringify({
                   razorpayOrderId: response.razorpay_order_id,
                   razorpayPaymentId: response.razorpay_payment_id,
-                  orderId: orderData.orderId
+                  orderId: result.orderId
                 })
               });
 
@@ -156,6 +216,8 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
               clearCart();
               onClose();
               setShowShippingForm(false);
+              setAppliedCoupon(null);
+              setCouponCode('');
             } catch (error) {
               toast({
                 title: "Payment Verification Failed",
@@ -289,8 +351,8 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
                 className="flex-1 bg-luxury-gold hover:bg-luxury-gold/90 text-navy-deep"
               >
                 {isCheckingOut ? 'Processing...' : 
-                 selectedPaymentMethod === 'cod' ? `Place COD Order ${formatPrice(getCartTotal())}` : 
-                 `Pay ${formatPrice(getCartTotal())}`}
+                 selectedPaymentMethod === 'cod' ? `Place COD Order ${formatPrice(finalTotal)}` : 
+                 `Pay ${formatPrice(finalTotal)}`}
               </Button>
             </div>
           </form>
@@ -357,11 +419,66 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
               </div>
             ))}
 
+            {/* Coupon Section */}
             <div className="border-t pt-4">
-              <div className="flex justify-between items-center text-lg font-semibold">
-                <span>Total: </span>
-                <span className="text-luxury-gold">{formatPrice(getCartTotal())}</span>
+              <h4 className="font-medium mb-3 flex items-center">
+                <Tag className="w-4 h-4 mr-2" />
+                Apply Coupon
+              </h4>
+              
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div>
+                    <span className="font-medium text-green-800">{appliedCoupon.coupon_data?.code}</span>
+                    <p className="text-sm text-green-600">Discount: {formatPrice(discountAmount)}</p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleRemoveCoupon}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex space-x-2">
+                  <Input
+                    placeholder="Enter coupon code"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={handleApplyCoupon}
+                    disabled={isValidatingCoupon}
+                    variant="outline"
+                  >
+                    {isValidatingCoupon ? 'Checking...' : 'Apply'}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Order Summary */}
+            <div className="border-t pt-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Subtotal:</span>
+                <span>{formatPrice(subtotal)}</span>
               </div>
+              
+              {appliedCoupon && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Discount:</span>
+                  <span>-{formatPrice(discountAmount)}</span>
+                </div>
+              )}
+              
+              <div className="flex justify-between items-center text-lg font-semibold border-t pt-2">
+                <span>Total:</span>
+                <span className="text-luxury-gold">{formatPrice(finalTotal)}</span>
+              </div>
+              
               <Button
                 onClick={handleCheckout}
                 className="w-full mt-4 bg-luxury-gold hover:bg-luxury-gold/90 text-navy-deep"

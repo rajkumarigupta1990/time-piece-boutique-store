@@ -29,6 +29,9 @@ export interface Order {
   razorpay_order_id?: string;
   razorpay_payment_id?: string;
   shipping_address: ShippingAddress;
+  coupon_id?: string;
+  coupon_code?: string;
+  discount_amount?: number;
   created_at: string;
   updated_at: string;
 }
@@ -85,4 +88,43 @@ export interface PaymentSettings {
   cod_enabled: boolean;
   online_payment_enabled: boolean;
   updated_at: string;
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  type: 'flat_amount' | 'percentage' | 'free_delivery';
+  value: number;
+  cap_amount?: number;
+  minimum_order_amount?: number;
+  max_uses?: number;
+  current_uses: number;
+  is_active: boolean;
+  valid_from: string;
+  valid_until?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CouponUsage {
+  id: string;
+  coupon_id: string;
+  order_id: string;
+  discount_amount: number;
+  created_at: string;
+}
+
+export interface CouponValidation {
+  is_valid: boolean;
+  discount_amount: number;
+  message: string;
+  coupon_data?: {
+    id: string;
+    code: string;
+    name: string;
+    type: string;
+    value: number;
+  };
 }

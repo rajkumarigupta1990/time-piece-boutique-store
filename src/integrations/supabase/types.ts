@@ -42,6 +42,99 @@ export type Database = {
         }
         Relationships: []
       }
+      coupon_usages: {
+        Row: {
+          coupon_id: string
+          created_at: string
+          discount_amount: number
+          id: string
+          order_id: string
+        }
+        Insert: {
+          coupon_id: string
+          created_at?: string
+          discount_amount: number
+          id?: string
+          order_id: string
+        }
+        Update: {
+          coupon_id?: string
+          created_at?: string
+          discount_amount?: number
+          id?: string
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_usages_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_usages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coupons: {
+        Row: {
+          cap_amount: number | null
+          code: string
+          created_at: string
+          current_uses: number | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          max_uses: number | null
+          minimum_order_amount: number | null
+          name: string
+          type: Database["public"]["Enums"]["coupon_type"]
+          updated_at: string
+          valid_from: string | null
+          valid_until: string | null
+          value: number
+        }
+        Insert: {
+          cap_amount?: number | null
+          code: string
+          created_at?: string
+          current_uses?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          minimum_order_amount?: number | null
+          name: string
+          type: Database["public"]["Enums"]["coupon_type"]
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+          value: number
+        }
+        Update: {
+          cap_amount?: number | null
+          code?: string
+          created_at?: string
+          current_uses?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          minimum_order_amount?: number | null
+          name?: string
+          type?: Database["public"]["Enums"]["coupon_type"]
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+          value?: number
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string
@@ -86,7 +179,10 @@ export type Database = {
       }
       orders: {
         Row: {
+          coupon_code: string | null
+          coupon_id: string | null
           created_at: string
+          discount_amount: number | null
           id: string
           razorpay_order_id: string | null
           razorpay_payment_id: string | null
@@ -97,7 +193,10 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          coupon_code?: string | null
+          coupon_id?: string | null
           created_at?: string
+          discount_amount?: number | null
           id?: string
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
@@ -108,7 +207,10 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          coupon_code?: string | null
+          coupon_id?: string | null
           created_at?: string
+          discount_amount?: number | null
           id?: string
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
@@ -117,6 +219,35 @@ export type Database = {
           total_amount?: number
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_settings: {
+        Row: {
+          cod_enabled: boolean
+          id: string
+          online_payment_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          cod_enabled?: boolean
+          id?: string
+          online_payment_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          cod_enabled?: boolean
+          id?: string
+          online_payment_enabled?: boolean
+          updated_at?: string
         }
         Relationships: []
       }
@@ -176,10 +307,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      validate_coupon: {
+        Args: { coupon_code_input: string; order_total: number }
+        Returns: {
+          is_valid: boolean
+          discount_amount: number
+          message: string
+          coupon_data: Json
+        }[]
+      }
     }
     Enums: {
-      [_ in never]: never
+      coupon_type: "flat_amount" | "percentage" | "free_delivery"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -294,6 +433,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      coupon_type: ["flat_amount", "percentage", "free_delivery"],
+    },
   },
 } as const
