@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Star, ShoppingCart } from 'lucide-react';
+import { Star, ShoppingCart, Package } from 'lucide-react';
 import { Product } from '@/types';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,8 @@ const ProductCard = ({ product }: ProductCardProps) => {
     addToCart(product);
   };
 
+  const moq = product.moq || 1;
+
   return (
     <Link to={`/product/${product.id}`}>
       <div className="group bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-border">
@@ -40,6 +42,12 @@ const ProductCard = ({ product }: ProductCardProps) => {
           {!product.in_stock && (
             <Badge variant="secondary" className="absolute top-3 right-3">
               Out of Stock
+            </Badge>
+          )}
+          {moq > 1 && (
+            <Badge className="absolute bottom-3 left-3 bg-blue-600 text-white">
+              <Package className="w-3 h-3 mr-1" />
+              MOQ: {moq}
             </Badge>
           )}
         </div>
@@ -89,7 +97,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
             className="w-full bg-luxury-gold hover:bg-luxury-gold/90 text-navy-deep"
           >
             <ShoppingCart className="w-4 h-4 mr-2" />
-            {product.in_stock ? 'Add to Cart' : 'Out of Stock'}
+            {product.in_stock ? (moq > 1 ? `Add ${moq} to Cart` : 'Add to Cart') : 'Out of Stock'}
           </Button>
         </div>
       </div>

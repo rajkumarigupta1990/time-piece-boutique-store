@@ -26,16 +26,18 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   const addToCart = (product: Product) => {
+    const moq = product.moq || 1;
+    
     setCartItems(prev => {
       const existingItem = prev.find(item => item.id === product.id);
       if (existingItem) {
         return prev.map(item =>
           item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: item.quantity + moq }
             : item
         );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, quantity: moq }];
     });
   };
 
@@ -48,9 +50,17 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       removeFromCart(productId);
       return;
     }
+    
+    // Find the product to get its MOQ
+    const item = cartItems.find(item => item.id === productId);
+    const moq = item?.moq || 1;
+    
+    // Ensure quantity is at least MOQ and is a multiple of MOQ
+    const adjustedQuantity = Math.max(moq, Math.ceil(quantity / moq) * moq);
+    
     setCartItems(prev =>
       prev.map(item =>
-        item.id === productId ? { ...item, quantity } : item
+        item.id === productId ? { ...item, quantity: adjustedQuantity } : item
       )
     );
   };

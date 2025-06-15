@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Minus, Plus, ShoppingCart, Tag } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { usePaymentSettings } from '@/hooks/usePaymentSettings';
+import { usePaymentCollectionSettings } from '@/hooks/usePaymentCollectionSettings';
 import { useValidateCoupon } from '@/hooks/useCoupons';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -17,6 +18,7 @@ interface CartProps {
 const Cart = ({ isOpen, onClose }: CartProps) => {
   const { cartItems, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
   const { data: paymentSettings } = usePaymentSettings();
+  const { data: paymentCollectionSettings } = usePaymentCollectionSettings();
   const validateCoupon = useValidateCoupon();
   const { toast } = useToast();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
@@ -41,7 +43,15 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
 
   const subtotal = getCartTotal();
   const discountAmount = appliedCoupon?.discount_amount || 0;
-  const finalTotal = subtotal - discountAmount;
+  
+  // Calculate shipping charges based on payment collection settings
+  const shippingCharge = paymentCollectionSettings?.shipping_charge || 50;
+  const shouldCollectShippingUpfront = paymentCollectionSettings?.collect_shipping_upfront || false;
+  
+  // Add shipping to total if collecting upfront OR if payment method is online
+  const includeShippingInTotal = shouldCollectShippingUpfront || selectedPaymentMethod === 'online';
+  const totalWithShipping = includeShippingInTotal ? subtotal + shippingCharge : subtotal;
+  const finalTotal = totalWithShipping - discountAmount;
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
@@ -126,6 +136,23 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
     setShowShippingForm(true);
   };
 
+  const handleQuantityUpdate = (productId: string, newQuantity: number) => {
+    const item = cartItems.find(item => item.id === productId);
+    const moq = item?.moq || 1;
+    
+    // Ensure quantity doesn't go below MOQ
+    if (newQuantity < moq) {
+      toast({
+        title: "Minimum Order Quantity",
+        description: `Minimum order quantity for this item is ${moq}`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    updateQuantity(productId, newQuantity);
+  };
+
   const handleShippingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCheckingOut(true);
@@ -159,7 +186,9 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
 
         toast({
           title: "Order Placed Successfully!",
-          description: "Your COD order has been placed. You'll pay when the order is delivered.",
+          description: includeShippingInTotal ? 
+            "Your COD order has been placed with shipping charges included." :
+            "Your COD order has been placed. Shipping charges will be collected at delivery.",
         });
 
         clearCart();
@@ -336,6 +365,34 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
                 </div>
               </div>
             )}
+            {/* Order Summary in Checkout */}
+            <div className="border-t pt-4 space-y-2 bg-gray-50 p-3 rounded">
+              <div className="flex justify-between text-sm">
+                <span>Subtotal:</span>
+                <span>{formatPrice(subtotal)}</span>
+              </div>
+              
+              <div className="flex justify-between text-sm">
+                <span>Shipping:</span>
+                <span>
+                  {includeShippingInTotal ? formatPrice(shippingCharge) : 
+                   'Collected at delivery'}
+                </span>
+              </div>
+              
+              {appliedCoupon && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Discount:</span>
+                  <span>-{formatPrice(discountAmount)}</span>
+                </div>
+              )}
+              
+              <div className="flex justify-between items-center text-lg font-semibold border-t pt-2">
+                <span>Total:</span>
+                <span className="text-luxury-gold">{formatPrice(subtotal + shippingCharge - discountAmount)}</span>
+              </div>
+            </div>
+            
             <div className="flex space-x-2">
               <Button
                 type="button"
@@ -378,46 +435,53 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
           </div>
         ) : (
           <div className="space-y-4">
-            {cartItems.map((item) => (
-              <div key={item.id} className="flex items-center space-x-4 border-b pb-4">
-                <img
-                  src={item.images[0]}
-                  alt={item.name}
-                  className="w-16 h-16 object-cover rounded"
-                />
-                <div className="flex-1">
-                  <h4 className="font-medium text-sm">{item.name}</h4>
-                  <p className="text-luxury-gold font-semibold">{formatPrice(item.price)}</p>
-                  <div className="flex items-center space-x-2 mt-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      className="h-8 w-8"
-                    >
-                      <Minus className="w-3 h-3" />
-                    </Button>
-                    <span className="w-8 text-center">{item.quantity}</span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      className="h-8 w-8"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </Button>
+            {cartItems.map((item) => {
+              const moq = item.moq || 1;
+              return (
+                <div key={item.id} className="flex items-center space-x-4 border-b pb-4">
+                  <img
+                    src={item.images[0]}
+                    alt={item.name}
+                    className="w-16 h-16 object-cover rounded"
+                  />
+                  <div className="flex-1">
+                    <h4 className="font-medium text-sm">{item.name}</h4>
+                    <p className="text-luxury-gold font-semibold">{formatPrice(item.price)}</p>
+                    {moq > 1 && (
+                      <p className="text-xs text-blue-600">MOQ: {moq}</p>
+                    )}
+                    <div className="flex items-center space-x-2 mt-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleQuantityUpdate(item.id, item.quantity - moq)}
+                        className="h-8 w-8"
+                        disabled={item.quantity <= moq}
+                      >
+                        <Minus className="w-3 h-3" />
+                      </Button>
+                      <span className="w-8 text-center">{item.quantity}</span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleQuantityUpdate(item.id, item.quantity + moq)}
+                        className="h-8 w-8"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </Button>
+                    </div>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeFromCart(item.id)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeFromCart(item.id)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
+              );
+            })}
 
             {/* Coupon Section */}
             <div className="border-t pt-4">
@@ -467,6 +531,11 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
                 <span>{formatPrice(subtotal)}</span>
               </div>
               
+              <div className="flex justify-between text-sm">
+                <span>Shipping:</span>
+                <span>{formatPrice(shippingCharge)}</span>
+              </div>
+              
               {appliedCoupon && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Discount:</span>
@@ -476,7 +545,7 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
               
               <div className="flex justify-between items-center text-lg font-semibold border-t pt-2">
                 <span>Total:</span>
-                <span className="text-luxury-gold">{formatPrice(finalTotal)}</span>
+                <span className="text-luxury-gold">{formatPrice(subtotal + shippingCharge - discountAmount)}</span>
               </div>
               
               <Button
