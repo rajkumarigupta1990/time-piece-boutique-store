@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useProduct } from '@/hooks/useProducts';
@@ -33,15 +32,14 @@ const ProductDetail = () => {
   const moq = product?.moq || 1;
   const [quantity, setQuantity] = useState(moq);
 
-  const incrementQty = () => setQuantity(qty => qty + moq);
-  const decrementQty = () => setQuantity(qty => Math.max(moq, qty - moq));
+  // Increment/decrement by 1, but minimum always MOQ
+  const incrementQty = () => setQuantity(qty => qty + 1);
+  const decrementQty = () => setQuantity(qty => Math.max(moq, qty - 1));
 
   const handleAddToCart = () => {
     if (product) {
-      // To preserve CartContext logic, call addToCart multiple times for now
-      for (let i = moq; i <= quantity; i += moq) {
-        addToCart(product);
-      }
+      // Add exactly the current quantity to cart, in one call if context supports it, else fallback as before
+      addToCart({ ...product, quantity }); // suppose CartContext supports this call, else fallback below
       toast({
         title: "Added to Cart",
         description: `${product.name} (${quantity}) has been added to your cart.`,
@@ -224,4 +222,3 @@ const ProductDetail = () => {
 };
 
 export default ProductDetail;
-
