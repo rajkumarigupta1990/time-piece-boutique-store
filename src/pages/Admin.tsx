@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Save, X, Package, MessageSquare, Users, Settings, Ticket } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, Package, MessageSquare, Users, Settings, Ticket, BarChart3 } from 'lucide-react';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '@/hooks/useProducts';
 import { useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
 import { useContactQueries, useUpdateContactQueryStatus } from '@/hooks/useContactQueries';
@@ -16,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import CouponManagement from '@/components/CouponManagement';
 import PaymentCollectionSettings from '@/components/PaymentCollectionSettings';
+import AdminDashboard from '@/components/AdminDashboard';
 
 const Admin = () => {
   const { toast } = useToast();
@@ -243,8 +245,12 @@ const Admin = () => {
           <h1 className="text-3xl font-bold text-navy-deep">Admin Panel</h1>
         </div>
 
-        <Tabs defaultValue="products" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="dashboard" className="flex items-center space-x-2">
+              <BarChart3 className="w-4 h-4" />
+              <span>Dashboard</span>
+            </TabsTrigger>
             <TabsTrigger value="products" className="flex items-center space-x-2">
               <Package className="w-4 h-4" />
               <span>Products ({products.length})</span>
@@ -266,6 +272,10 @@ const Admin = () => {
               <span>Settings</span>
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="dashboard" className="space-y-6">
+            <AdminDashboard />
+          </TabsContent>
 
           <TabsContent value="products" className="space-y-6">
             <div className="flex justify-end">
