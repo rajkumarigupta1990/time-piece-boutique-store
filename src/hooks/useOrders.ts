@@ -23,7 +23,7 @@ export const useOrders = () => {
       // Transform the data to match our Order type
       return data.map(order => ({
         ...order,
-        shipping_address: order.shipping_address as ShippingAddress
+        shipping_address: order.shipping_address as unknown as ShippingAddress
       })) as Order[];
     },
   });
