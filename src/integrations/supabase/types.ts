@@ -9,50 +9,44 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      coupon_usages: {
+      contact_queries: {
         Row: {
-          coupon_id: string
-          created_at: string
-          discount_amount: number
+          created_at: string | null
+          email: string
           id: string
-          order_id: string
+          message: string
+          name: string
+          status: string
+          subject: string
+          updated_at: string | null
         }
         Insert: {
-          coupon_id: string
-          created_at?: string
-          discount_amount: number
+          created_at?: string | null
+          email: string
           id?: string
-          order_id: string
+          message: string
+          name: string
+          status?: string
+          subject: string
+          updated_at?: string | null
         }
         Update: {
-          coupon_id?: string
-          created_at?: string
-          discount_amount?: number
+          created_at?: string | null
+          email?: string
           id?: string
-          order_id?: string
+          message?: string
+          name?: string
+          status?: string
+          subject?: string
+          updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "coupon_usages_coupon_id_fkey"
-            columns: ["coupon_id"]
-            isOneToOne: false
-            referencedRelation: "coupons"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "coupon_usages_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       coupons: {
         Row: {
           cap_amount: number | null
           code: string
-          created_at: string
+          created_at: string | null
           current_uses: number | null
           description: string | null
           id: string
@@ -60,8 +54,8 @@ export type Database = {
           max_uses: number | null
           minimum_order_amount: number | null
           name: string
-          type: Database["public"]["Enums"]["coupon_type"]
-          updated_at: string
+          type: string
+          updated_at: string | null
           valid_from: string | null
           valid_until: string | null
           value: number
@@ -69,7 +63,7 @@ export type Database = {
         Insert: {
           cap_amount?: number | null
           code: string
-          created_at?: string
+          created_at?: string | null
           current_uses?: number | null
           description?: string | null
           id?: string
@@ -77,8 +71,8 @@ export type Database = {
           max_uses?: number | null
           minimum_order_amount?: number | null
           name: string
-          type: Database["public"]["Enums"]["coupon_type"]
-          updated_at?: string
+          type: string
+          updated_at?: string | null
           valid_from?: string | null
           valid_until?: string | null
           value: number
@@ -86,7 +80,7 @@ export type Database = {
         Update: {
           cap_amount?: number | null
           code?: string
-          created_at?: string
+          created_at?: string | null
           current_uses?: number | null
           description?: string | null
           id?: string
@@ -94,8 +88,8 @@ export type Database = {
           max_uses?: number | null
           minimum_order_amount?: number | null
           name?: string
-          type?: Database["public"]["Enums"]["coupon_type"]
-          updated_at?: string
+          type?: string
+          updated_at?: string | null
           valid_from?: string | null
           valid_until?: string | null
           value?: number
@@ -104,7 +98,7 @@ export type Database = {
       }
       order_items: {
         Row: {
-          created_at: string
+          created_at: string | null
           id: string
           order_id: string
           price: number
@@ -112,15 +106,15 @@ export type Database = {
           quantity: number
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           id?: string
           order_id: string
           price: number
           product_id: string
-          quantity?: number
+          quantity: number
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           id?: string
           order_id?: string
           price?: number
@@ -147,8 +141,7 @@ export type Database = {
       orders: {
         Row: {
           coupon_code: string | null
-          coupon_id: string | null
-          created_at: string
+          created_at: string | null
           discount_amount: number | null
           id: string
           razorpay_order_id: string | null
@@ -156,13 +149,12 @@ export type Database = {
           shipping_address: Json
           status: string
           total_amount: number
-          updated_at: string
-          user_id: string | null
+          updated_at: string | null
+          user_id: string
         }
         Insert: {
           coupon_code?: string | null
-          coupon_id?: string | null
-          created_at?: string
+          created_at?: string | null
           discount_amount?: number | null
           id?: string
           razorpay_order_id?: string | null
@@ -170,13 +162,12 @@ export type Database = {
           shipping_address: Json
           status?: string
           total_amount: number
-          updated_at?: string
-          user_id?: string | null
+          updated_at?: string | null
+          user_id: string
         }
         Update: {
           coupon_code?: string | null
-          coupon_id?: string | null
-          created_at?: string
+          created_at?: string | null
           discount_amount?: number | null
           id?: string
           razorpay_order_id?: string | null
@@ -184,18 +175,10 @@ export type Database = {
           shipping_address?: Json
           status?: string
           total_amount?: number
-          updated_at?: string
-          user_id?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "orders_coupon_id_fkey"
-            columns: ["coupon_id"]
-            isOneToOne: false
-            referencedRelation: "coupons"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       payment_collection_settings: {
         Row: {
@@ -203,42 +186,42 @@ export type Database = {
           collect_shipping_upfront: boolean | null
           id: string
           shipping_charge: number | null
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
           collect_other_charges_upfront?: boolean | null
           collect_shipping_upfront?: boolean | null
           id?: string
           shipping_charge?: number | null
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
           collect_other_charges_upfront?: boolean | null
           collect_shipping_upfront?: boolean | null
           id?: string
           shipping_charge?: number | null
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
       payment_settings: {
         Row: {
-          cod_enabled: boolean
+          cod_enabled: boolean | null
           id: string
-          online_payment_enabled: boolean
-          updated_at: string
+          online_payment_enabled: boolean | null
+          updated_at: string | null
         }
         Insert: {
-          cod_enabled?: boolean
+          cod_enabled?: boolean | null
           id?: string
-          online_payment_enabled?: boolean
-          updated_at?: string
+          online_payment_enabled?: boolean | null
+          updated_at?: string | null
         }
         Update: {
-          cod_enabled?: boolean
+          cod_enabled?: boolean | null
           id?: string
-          online_payment_enabled?: boolean
-          updated_at?: string
+          online_payment_enabled?: boolean | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -247,55 +230,112 @@ export type Database = {
           additional_charges: Json | null
           brand: string
           category: string
-          created_at: string
-          description: string
-          features: string[]
+          created_at: string | null
+          description: string | null
+          features: Json | null
           id: string
-          images: string[]
-          in_stock: boolean
+          images: Json
+          in_stock: boolean | null
           moq: number | null
           name: string
           original_price: number | null
           price: number
-          rating: number
-          reviews: number
-          updated_at: string
+          rating: number | null
+          reviews: number | null
+          updated_at: string | null
         }
         Insert: {
           additional_charges?: Json | null
           brand: string
           category: string
-          created_at?: string
-          description: string
-          features?: string[]
+          created_at?: string | null
+          description?: string | null
+          features?: Json | null
           id?: string
-          images?: string[]
-          in_stock?: boolean
+          images?: Json
+          in_stock?: boolean | null
           moq?: number | null
           name: string
           original_price?: number | null
           price: number
-          rating?: number
-          reviews?: number
-          updated_at?: string
+          rating?: number | null
+          reviews?: number | null
+          updated_at?: string | null
         }
         Update: {
           additional_charges?: Json | null
           brand?: string
           category?: string
-          created_at?: string
-          description?: string
-          features?: string[]
+          created_at?: string | null
+          description?: string | null
+          features?: Json | null
           id?: string
-          images?: string[]
-          in_stock?: boolean
+          images?: Json
+          in_stock?: boolean | null
           moq?: number | null
           name?: string
           original_price?: number | null
           price?: number
-          rating?: number
-          reviews?: number
-          updated_at?: string
+          rating?: number | null
+          reviews?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          full_name: string | null
+          id: string
+          phone: string | null
+          pincode: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          pincode?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          pincode?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      service_areas: {
+        Row: {
+          area_name: string
+          created_at: string | null
+          delivery_charge: number | null
+          id: string
+          is_active: boolean | null
+          pincode: string
+        }
+        Insert: {
+          area_name: string
+          created_at?: string | null
+          delivery_charge?: number | null
+          id?: string
+          is_active?: boolean | null
+          pincode: string
+        }
+        Update: {
+          area_name?: string
+          created_at?: string | null
+          delivery_charge?: number | null
+          id?: string
+          is_active?: boolean | null
+          pincode?: string
         }
         Relationships: []
       }
@@ -304,18 +344,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      validate_coupon: {
-        Args: { coupon_code_input: string; order_total: number }
-        Returns: {
-          is_valid: boolean
-          discount_amount: number
-          message: string
-          coupon_data: Json
-        }[]
-      }
+      [_ in never]: never
     }
     Enums: {
-      coupon_type: "flat_amount" | "percentage" | "free_delivery"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -430,8 +462,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      coupon_type: ["flat_amount", "percentage", "free_delivery"],
-    },
+    Enums: {},
   },
 } as const
