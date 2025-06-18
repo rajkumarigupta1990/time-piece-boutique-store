@@ -6,15 +6,11 @@ import { Button } from '@/components/ui/button';
 import ProductCard from '@/components/ProductCard';
 import TestimonialCard from '@/components/TestimonialCard';
 import { testimonials } from '@/data/testimonials';
-import { products as fallbackProducts } from '@/data/products';
 import { Star, Award, Shield, Clock } from 'lucide-react';
 
 const Index = () => {
   const navigate = useNavigate();
-  const { data: dbProducts = [], isLoading, error } = useProducts();
-  
-  // Use database products if available, otherwise fall back to static data
-  const products = dbProducts.length > 0 ? dbProducts : fallbackProducts;
+  const { data: products = [], isLoading, error } = useProducts();
   
   // Get featured products (first 3)
   const featuredProducts = products.slice(0, 3);
@@ -84,25 +80,32 @@ const Index = () => {
             <div className="text-center">Loading featured products...</div>
           ) : error ? (
             <div className="text-center text-red-600">
-              Unable to load products from database, showing sample products.
+              <p className="text-lg mb-4">Unable to load products from database.</p>
+              <p className="text-sm">Please check your database connection.</p>
             </div>
-          ) : null}
+          ) : featuredProducts.length === 0 ? (
+            <div className="text-center text-gray-600">
+              <p className="text-lg">No products available at the moment.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {featuredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {featuredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-
-          <div className="text-center mt-12">
-            <Button 
-              onClick={() => navigate('/products')}
-              variant="outline" 
-              className="border-navy-deep text-navy-deep hover:bg-navy-deep hover:text-white"
-            >
-              View All Products
-            </Button>
-          </div>
+          {!isLoading && !error && products.length > 0 && (
+            <div className="text-center mt-12">
+              <Button 
+                onClick={() => navigate('/products')}
+                variant="outline" 
+                className="border-navy-deep text-navy-deep hover:bg-navy-deep hover:text-white"
+              >
+                View All Products
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
