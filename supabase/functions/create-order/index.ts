@@ -14,182 +14,110 @@ serve(async (req) => {
   }
 
   try {
-    const { 
-      items, 
-      shippingAddress, 
-      totalAmount, 
-      paymentMethod, 
-      couponCode, 
-      discountAmount, 
-      codShippingOnly = false,
-      codShippingUpfrontPaid = false 
-    } = await req.json();
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
-    console.log('Order creation request:', { 
-      totalAmount, 
-      paymentMethod, 
-      codShippingOnly, 
-      codShippingUpfrontPaid,
-      itemsCount: items?.length || 0
-    });
+    const body = await req.json();
+    const { items, shippingAddress, totalAmount, paymentMethod, couponCode, discountAmount, codShippingOnly = false } = body;
 
-    const supabaseUrl = 'https://rhbpyacohntcqlszgvle.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE';
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('Creating order with:', { totalAmount, paymentMethod, couponCode, discountAmount, codShippingOnly });
 
-    // For COD shipping-only orders, don't create main order
-    if (codShippingOnly) {
-      // Create Razorpay order for shipping charges only
-      const razorpayOrderResponse = await fetch('https://api.razorpay.com/v1/orders', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${btoa('rzp_test_PBM2Y93ANCIoG2:d5cwiAvh98MH4deTvSfEqMH5')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: totalAmount * 100, // Convert to paise
-          currency: 'INR',
-          receipt: `shipping_${Date.now()}`,
-        }),
-      });
-
-      const razorpayOrder = await razorpayOrderResponse.json();
-
-      if (!razorpayOrderResponse.ok) {
-        throw new Error(razorpayOrder.error?.description || 'Failed to create Razorpay order');
-      }
-
-      // Create a temporary order entry for the shipping payment tracking
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          total_amount: totalAmount,
-          shipping_address: shippingAddress,
-          razorpay_order_id: razorpayOrder.id,
-          status: 'pending',
-          coupon_code: 'SHIPPING_ONLY',
-          discount_amount: 0
-        })
-        .select()
-        .single();
-
-      if (orderError) {
-        throw new Error(orderError.message);
-      }
-
-      return new Response(
-        JSON.stringify({
-          razorpayOrderId: razorpayOrder.id,
-          orderId: order.id,
-          amount: razorpayOrder.amount,
-          currency: razorpayOrder.currency,
-          key: 'rzp_test_PBM2Y93ANCIoG2'
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    // For regular orders (both online and COD)
-    let razorpayOrder = null;
-    
-    // Only create Razorpay order for online payments
-    if (paymentMethod === 'online') {
-      const razorpayOrderResponse = await fetch('https://api.razorpay.com/v1/orders', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${btoa('rzp_test_PBM2Y93ANCIoG2:d5cwiAvh98MH4deTvSfEqMH5')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: totalAmount * 100, // Convert to paise
-          currency: 'INR',
-          receipt: `receipt_${Date.now()}`,
-        }),
-      });
-
-      razorpayOrder = await razorpayOrderResponse.json();
-
-      if (!razorpayOrderResponse.ok) {
-        throw new Error(razorpayOrder.error?.description || 'Failed to create Razorpay order');
-      }
-    }
-
-    // Create order in Supabase
-    const orderData: any = {
-      total_amount: totalAmount,
-      shipping_address: shippingAddress,
-      status: paymentMethod === 'online' ? 'pending' : 'confirmed',
-      coupon_code: couponCode || null,
-      discount_amount: discountAmount || 0
-    };
-
-    if (razorpayOrder) {
-      orderData.razorpay_order_id = razorpayOrder.id;
-    }
-
-    const { data: order, error: orderError } = await supabase
+    // Create the order
+    const { data: order, error: orderError } = await supabaseClient
       .from('orders')
-      .insert(orderData)
+      .insert({
+        total_amount: totalAmount,
+        shipping_address: shippingAddress,
+        status: 'pending',
+        discount_amount: discountAmount || 0,
+        coupon_code: couponCode,
+      })
       .select()
       .single();
 
     if (orderError) {
-      throw new Error(orderError.message);
+      console.error('Order creation error:', orderError);
+      throw new Error(`Failed to create order: ${orderError.message}`);
     }
 
-    // Create order items only if items are provided
-    if (items && items.length > 0) {
+    console.log('Order created:', order.id);
+
+    // Create order items only if not COD shipping only
+    if (!codShippingOnly && items && items.length > 0) {
       const orderItems = items.map((item: any) => ({
         order_id: order.id,
         product_id: item.id,
-        quantity: item.quantity,
-        price: item.price
+        quantity: item.quantity || 1,
+        price: item.price,
       }));
 
-      const { error: itemsError } = await supabase
+      const { error: itemsError } = await supabaseClient
         .from('order_items')
         .insert(orderItems);
 
       if (itemsError) {
-        throw new Error(itemsError.message);
+        console.error('Order items creation error:', itemsError);
+        // Delete the order if items creation fails
+        await supabaseClient.from('orders').delete().eq('id', order.id);
+        throw new Error(`Failed to create order items: ${itemsError.message}`);
       }
+
+      console.log('Order items created successfully');
     }
 
-    console.log('Order created successfully:', { orderId: order.id, paymentMethod });
+    // Create Razorpay order for payment
+    const razorpayResponse = await fetch('https://api.razorpay.com/v1/orders', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${btoa(`${Deno.env.get('RAZORPAY_KEY_ID')}:${Deno.env.get('RAZORPAY_KEY_SECRET')}`)}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount: Math.round(totalAmount * 100), // Convert to paise
+        currency: 'INR',
+        receipt: order.id,
+      }),
+    });
 
-    // Return appropriate response based on payment method
-    if (paymentMethod === 'online') {
-      return new Response(
-        JSON.stringify({
-          razorpayOrderId: razorpayOrder.id,
-          orderId: order.id,
-          amount: razorpayOrder.amount,
-          currency: razorpayOrder.currency,
-          key: 'rzp_test_PBM2Y93ANCIoG2'
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    } else {
-      return new Response(
-        JSON.stringify({
-          orderId: order.id,
-          message: 'COD order placed successfully'
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+    if (!razorpayResponse.ok) {
+      const errorText = await razorpayResponse.text();
+      console.error('Razorpay error:', errorText);
+      throw new Error(`Razorpay order creation failed: ${errorText}`);
     }
+
+    const razorpayOrder = await razorpayResponse.json();
+
+    // Update order with Razorpay order ID
+    const { error: updateError } = await supabaseClient
+      .from('orders')
+      .update({ razorpay_order_id: razorpayOrder.id })
+      .eq('id', order.id);
+
+    if (updateError) {
+      console.error('Order update error:', updateError);
+      throw new Error(`Failed to update order with Razorpay ID: ${updateError.message}`);
+    }
+
+    return new Response(
+      JSON.stringify({
+        orderId: order.id,
+        razorpayOrderId: razorpayOrder.id,
+        key: Deno.env.get('RAZORPAY_KEY_ID'),
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
-    console.error('Error creating order:', error);
+    console.error('Error in create-order function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
-        status: 500,
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
