@@ -70,6 +70,12 @@ export const useValidateCoupon = () => {
         });
       
       if (error) throw error;
+      
+      // Ensure data exists and return the first item
+      if (!data || data.length === 0) {
+        throw new Error('No validation result returned');
+      }
+      
       return data[0] as CouponValidation;
     },
   });
