@@ -1,87 +1,84 @@
 
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const supabaseClient = createClient(
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    )
 
-    const { method, couponData, couponId } = await req.json();
+    const { method, couponData, couponId } = await req.json()
 
-    console.log('Admin coupons function called with method:', method);
+    let result;
 
     switch (method) {
-      case 'list':
-        const { data: coupons, error: listError } = await supabaseClient
-          .from('coupons')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (listError) throw listError;
-        return new Response(JSON.stringify(coupons), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-
       case 'create':
-        const { data: newCoupon, error: createError } = await supabaseClient
+        result = await supabaseAdmin
           .from('coupons')
-          .insert(couponData)
+          .insert({
+            ...couponData,
+            current_uses: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
           .select()
           .single();
-
-        if (createError) throw createError;
-        return new Response(JSON.stringify(newCoupon), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        break;
 
       case 'update':
-        const { data: updatedCoupon, error: updateError } = await supabaseClient
+        result = await supabaseAdmin
           .from('coupons')
-          .update(couponData)
+          .update({
+            ...couponData,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', couponId)
           .select()
           .single();
-
-        if (updateError) throw updateError;
-        return new Response(JSON.stringify(updatedCoupon), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        break;
 
       case 'delete':
-        const { error: deleteError } = await supabaseClient
+        result = await supabaseAdmin
           .from('coupons')
           .delete()
           .eq('id', couponId);
+        break;
 
-        if (deleteError) throw deleteError;
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      case 'list':
+        result = await supabaseAdmin
+          .from('coupons')
+          .select('*')
+          .order('created_at', { ascending: false });
+        break;
 
       default:
         throw new Error('Invalid method');
     }
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    return new Response(JSON.stringify(result.data), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
+
   } catch (error) {
-    console.error('Error in admin-coupons function:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400,
+    })
   }
-});
+})

@@ -14,17 +14,14 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     const { razorpayOrderId, razorpayPaymentId, orderId } = await req.json();
 
-    console.log('Verifying payment:', { razorpayOrderId, razorpayPaymentId, orderId });
+    const supabaseUrl = 'https://rhbpyacohntcqlszgvle.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE';
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Update order with payment details and mark as confirmed
-    const { error: updateError } = await supabaseClient
+    // Update order with payment details
+    const { error } = await supabase
       .from('orders')
       .update({
         razorpay_payment_id: razorpayPaymentId,
@@ -32,12 +29,9 @@ serve(async (req) => {
       })
       .eq('id', orderId);
 
-    if (updateError) {
-      console.error('Payment verification error:', updateError);
-      throw new Error(`Failed to verify payment: ${updateError.message}`);
+    if (error) {
+      throw new Error(error.message);
     }
-
-    console.log('Payment verified successfully for order:', orderId);
 
     return new Response(
       JSON.stringify({ success: true }),
@@ -46,11 +40,11 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('Error in verify-payment function:', error);
+    console.error('Error verifying payment:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
-        status: 400,
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );

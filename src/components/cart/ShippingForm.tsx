@@ -122,11 +122,11 @@ const ShippingForm = ({
       codShippingOnly,
     };
 
-    const response = await fetch('https://gacxnkgazwybqyymfqpq.supabase.co/functions/v1/create-order', {
+    const response = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhY3hua2dhend5YnF5eW1mcXBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxMDE5MDUsImV4cCI6MjA2NTY3NzkwNX0.maSsPrq_8aPBw-SPXOar1qumrKgF-yjVbslNDqI8xaw`
+        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
       },
       body: JSON.stringify(requestBody)
     });
@@ -167,11 +167,11 @@ const ShippingForm = ({
           order_id: rpResult.razorpayOrderId,
           handler: async (response: any) => {
             try {
-              await fetch('https://gacxnkgazwybqyymfqpq.supabase.co/functions/v1/verify-payment', {
+              await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/verify-payment', {
                 method: 'POST',
                 headers: { 
                   'Content-Type': 'application/json',
-                  'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhY3hua2dhend5YnF5eW1mcXBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxMDE5MDUsImV4cCI6MjA2NTY3NzkwNX0.maSsPrq_8aPBw-SPXOar1qumrKgF-yjVbslNDqI8xaw`
+                  'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
                 },
                 body: JSON.stringify({
                   razorpayOrderId: response.razorpay_order_id,
@@ -190,11 +190,11 @@ const ShippingForm = ({
                 codShippingUpfrontPaid: true,
               };
               
-              const codResp = await fetch('https://gacxnkgazwybqyymfqpq.supabase.co/functions/v1/create-order', {
+              const codResp = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
                 method: 'POST',
                 headers: { 
                   'Content-Type': 'application/json',
-                  'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhY3hua2dhend5YnF5eW1mcXBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxMDE5MDUsImV4cCI6MjA2NTY3NzkwNX0.maSsPrq_8aPBw-SPXOar1qumrKgF-yjVbslNDqI8xaw`
+                  'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
                 },
                 body: JSON.stringify(codOrderBody)
               });
@@ -247,11 +247,11 @@ const ShippingForm = ({
       };
 
       if (selectedPaymentMethod === 'cod') {
-        const response = await fetch('https://gacxnkgazwybqyymfqpq.supabase.co/functions/v1/create-order', {
+        const response = await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/create-order', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhY3hua2dhend5YnF5eW1mcXBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxMDE5MDUsImV4cCI6MjA2NTY3NzkwNX0.maSsPrq_8aPBw-SPXOar1qumrKgF-yjVbslNDqI8xaw`
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
           },
           body: JSON.stringify(orderData)
         });
@@ -287,11 +287,11 @@ const ShippingForm = ({
           order_id: result.razorpayOrderId,
           handler: async (response: any) => {
             try {
-              await fetch('https://gacxnkgazwybqyymfqpq.supabase.co/functions/v1/verify-payment', {
+              await fetch('https://rhbpyacohntcqlszgvle.supabase.co/functions/v1/verify-payment', {
                 method: 'POST',
                 headers: { 
                   'Content-Type': 'application/json',
-                  'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhY3hua2dhend5YnF5eW1mcXBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxMDE5MDUsImV4cCI6MjA2NTY3NzkwNX0.maSsPrq_8aPBw-SPXOar1qumrKgF-yjVbslNDqI8xaw`
+                  'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnB5YWNvaG50Y3Fsc3pndmxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDA5MjAsImV4cCI6MjA2NDgxNjkyMH0.MSJEKJsIkZs9SKHG3K6PQAJOeFsWrIcUum7BmWXXnYE`
                 },
                 body: JSON.stringify({
                   razorpayOrderId: response.razorpay_order_id,
