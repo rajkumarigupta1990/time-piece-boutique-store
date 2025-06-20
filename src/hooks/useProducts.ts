@@ -1,7 +1,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Product, AdditionalCharge } from '@/types';
+import { Product } from '@/types';
 
 export const useProducts = () => {
   return useQuery({
@@ -13,33 +13,7 @@ export const useProducts = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      
-      // Convert database records to Product type
-      return data.map(item => ({
-        ...item,
-        additional_charges: (item.additional_charges as unknown as AdditionalCharge[]) || []
-      })) as Product[];
-    },
-  });
-};
-
-export const useProduct = (id: string) => {
-  return useQuery({
-    queryKey: ['product', id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (error) throw error;
-      
-      // Convert database record to Product type
-      return {
-        ...data,
-        additional_charges: (data.additional_charges as unknown as AdditionalCharge[]) || []
-      } as Product;
+      return data as Product[];
     },
   });
 };
@@ -49,25 +23,29 @@ export const useCreateProduct = () => {
   
   return useMutation({
     mutationFn: async (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
-      // Convert Product type to database compatible format
-      const dbProduct = {
-        ...product,
-        additional_charges: product.additional_charges as any
-      };
-      
       const { data, error } = await supabase
         .from('products')
-        .insert(dbProduct)
+        .insert([{
+          name: product.name,
+          brand: product.brand,
+          price: product.price,
+          original_price: product.original_price,
+          images: product.images,
+          video_url: product.video_url,
+          description: product.description,
+          features: product.features,
+          category: product.category,
+          in_stock: product.in_stock,
+          rating: product.rating,
+          reviews: product.reviews,
+          moq: product.moq,
+          additional_charges: product.additional_charges
+        }])
         .select()
         .single();
       
       if (error) throw error;
-      
-      // Convert back to Product type
-      return {
-        ...data,
-        additional_charges: (data.additional_charges as unknown as AdditionalCharge[]) || []
-      } as Product;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -80,26 +58,30 @@ export const useUpdateProduct = () => {
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Product> & { id: string }) => {
-      // Convert Product type to database compatible format
-      const dbUpdates = {
-        ...updates,
-        additional_charges: updates.additional_charges as any
-      };
-      
       const { data, error } = await supabase
         .from('products')
-        .update(dbUpdates)
+        .update({
+          name: updates.name,
+          brand: updates.brand,
+          price: updates.price,
+          original_price: updates.original_price,
+          images: updates.images,
+          video_url: updates.video_url,
+          description: updates.description,
+          features: updates.features,
+          category: updates.category,
+          in_stock: updates.in_stock,
+          rating: updates.rating,
+          reviews: updates.reviews,
+          moq: updates.moq,
+          additional_charges: updates.additional_charges
+        })
         .eq('id', id)
         .select()
         .single();
       
       if (error) throw error;
-      
-      // Convert back to Product type
-      return {
-        ...data,
-        additional_charges: (data.additional_charges as unknown as AdditionalCharge[]) || []
-      } as Product;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
