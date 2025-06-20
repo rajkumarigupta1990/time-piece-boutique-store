@@ -41,6 +41,7 @@ const Admin = () => {
     price: 0,
     original_price: 0,
     images: ['/placeholder.svg'],
+    video_url: '',
     description: '',
     features: [],
     category: 'luxury',
@@ -74,6 +75,7 @@ const Admin = () => {
       price: 0,
       original_price: 0,
       images: ['/placeholder.svg'],
+      video_url: '',
       description: '',
       features: [],
       category: 'luxury',
@@ -102,6 +104,7 @@ const Admin = () => {
         price: formData.price!,
         original_price: formData.original_price || null,
         images: formData.images || ['/placeholder.svg'],
+        video_url: formData.video_url || null,
         description: formData.description!,
         features: formData.features || [],
         category: formData.category as Product['category'],
@@ -367,6 +370,15 @@ const Admin = () => {
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Video URL</label>
+                      <Input
+                        value={formData.video_url || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, video_url: e.target.value }))}
+                        placeholder="https://www.youtube.com/watch?v=..."
+                      />
                     </div>
                   </div>
 

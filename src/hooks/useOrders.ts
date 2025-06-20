@@ -24,7 +24,7 @@ export const useOrders = () => {
       return data.map(order => ({
         id: order.id,
         total_amount: order.total_amount,
-        shipping_address: order.shipping_address as ShippingAddress,
+        shipping_address: order.shipping_address as unknown as ShippingAddress,
         created_at: order.created_at,
         updated_at: order.updated_at,
         status: order.status as Order['status'],

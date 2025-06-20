@@ -5,6 +5,7 @@ export interface Product {
   price: number;
   original_price?: number;
   images: string[];
+  video_url?: string;
   description: string;
   features: string[];
   category: 'luxury' | 'sport' | 'classic' | 'smart';
