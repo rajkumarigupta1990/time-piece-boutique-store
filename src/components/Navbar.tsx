@@ -53,6 +53,12 @@ const Navbar = () => {
                 >
                   Help
                 </Link>
+                <Link
+                  to="/order-tracking"
+                  className="hover:text-luxury-gold px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  Track Order
+                </Link>
               </div>
             </div>
 
@@ -126,6 +132,13 @@ const Navbar = () => {
                 onClick={() => setIsMenuOpen(false)}
               >
                 Help
+              </Link>
+              <Link
+                to="/order-tracking"
+                className="hover:text-luxury-gold block px-3 py-2 rounded-md text-base font-medium transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Track Order
               </Link>
               <div className="flex items-center space-x-4 px-3 py-2">
                 <Button

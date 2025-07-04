@@ -19,6 +19,7 @@ serve(async (req) => {
       shippingAddress, 
       totalAmount, 
       paymentMethod, 
+      paymentGateway = 'razorpay', // Default to Razorpay for backward compatibility
       couponCode, 
       discountAmount, 
       codShippingOnly = false,
@@ -28,6 +29,7 @@ serve(async (req) => {
     console.log('Order creation request:', { 
       totalAmount, 
       paymentMethod, 
+      paymentGateway,
       codShippingOnly, 
       codShippingUpfrontPaid,
       itemsCount: items?.length || 0
@@ -93,26 +95,45 @@ serve(async (req) => {
 
     // For regular orders (both online and COD)
     let razorpayOrder = null;
+    let phonePeOrder = null;
     
-    // Only create Razorpay order for online payments
+    // Only create payment gateway order for online payments
     if (paymentMethod === 'online') {
-      const razorpayOrderResponse = await fetch('https://api.razorpay.com/v1/orders', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${btoa('rzp_test_PBM2Y93ANCIoG2:d5cwiAvh98MH4deTvSfEqMH5')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: totalAmount * 100, // Convert to paise
-          currency: 'INR',
-          receipt: `receipt_${Date.now()}`,
-        }),
-      });
+      if (paymentGateway === 'phonepe') {
+        // Create PhonePe order
+        const phonePeResponse = await supabase.functions.invoke('phonepe-initiate', {
+          body: {
+            orderId: `ORDER_${Date.now()}`,
+            amount: totalAmount,
+            callbackUrl: `${req.headers.get('origin')}/payment-callback`
+          }
+        });
+        
+        if (phonePeResponse.error) {
+          throw new Error(phonePeResponse.error.message);
+        }
+        
+        phonePeOrder = phonePeResponse.data;
+      } else {
+        // Create Razorpay order (default)
+        const razorpayOrderResponse = await fetch('https://api.razorpay.com/v1/orders', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${btoa('rzp_test_PBM2Y93ANCIoG2:d5cwiAvh98MH4deTvSfEqMH5')}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            amount: totalAmount * 100, // Convert to paise
+            currency: 'INR',
+            receipt: `receipt_${Date.now()}`,
+          }),
+        });
 
-      razorpayOrder = await razorpayOrderResponse.json();
+        razorpayOrder = await razorpayOrderResponse.json();
 
-      if (!razorpayOrderResponse.ok) {
-        throw new Error(razorpayOrder.error?.description || 'Failed to create Razorpay order');
+        if (!razorpayOrderResponse.ok) {
+          throw new Error(razorpayOrder.error?.description || 'Failed to create Razorpay order');
+        }
       }
     }
 
@@ -127,6 +148,8 @@ serve(async (req) => {
 
     if (razorpayOrder) {
       orderData.razorpay_order_id = razorpayOrder.id;
+    } else if (phonePeOrder) {
+      orderData.razorpay_order_id = phonePeOrder.transactionId; // Using same field for PhonePe transaction ID
     }
 
     const { data: order, error: orderError } = await supabase
@@ -161,18 +184,33 @@ serve(async (req) => {
 
     // Return appropriate response based on payment method
     if (paymentMethod === 'online') {
-      return new Response(
-        JSON.stringify({
-          razorpayOrderId: razorpayOrder.id,
-          orderId: order.id,
-          amount: razorpayOrder.amount,
-          currency: razorpayOrder.currency,
-          key: 'rzp_test_PBM2Y93ANCIoG2'
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      if (paymentGateway === 'phonepe' && phonePeOrder) {
+        return new Response(
+          JSON.stringify({
+            paymentUrl: phonePeOrder.paymentUrl,
+            transactionId: phonePeOrder.transactionId,
+            orderId: order.id,
+            gateway: 'phonepe'
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      } else {
+        return new Response(
+          JSON.stringify({
+            razorpayOrderId: razorpayOrder.id,
+            orderId: order.id,
+            amount: razorpayOrder.amount,
+            currency: razorpayOrder.currency,
+            key: 'rzp_test_PBM2Y93ANCIoG2',
+            gateway: 'razorpay'
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
     } else {
       return new Response(
         JSON.stringify({

@@ -293,6 +293,7 @@ export type Database = {
           rating: number
           reviews: number
           updated_at: string
+          video_url: string | null
         }
         Insert: {
           additional_charges?: Json | null
@@ -311,6 +312,7 @@ export type Database = {
           rating?: number
           reviews?: number
           updated_at?: string
+          video_url?: string | null
         }
         Update: {
           additional_charges?: Json | null
@@ -329,6 +331,7 @@ export type Database = {
           rating?: number
           reviews?: number
           updated_at?: string
+          video_url?: string | null
         }
         Relationships: []
       }

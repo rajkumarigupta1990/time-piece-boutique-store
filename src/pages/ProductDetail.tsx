@@ -80,6 +80,34 @@ const ProductDetail = () => {
             {/* Product Images */}
             <div>
               <ImageCarousel images={product.images} alt={product.name} />
+              
+              {/* Product Video */}
+              {product.video_url && (
+                <div className="mt-4">
+                  <h3 className="text-lg font-semibold text-navy-deep mb-3">Product Video</h3>
+                  <div className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden">
+                    {product.video_url.includes('youtube.com') || product.video_url.includes('youtu.be') ? (
+                      <iframe
+                        src={product.video_url.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                        title={`${product.name} Video`}
+                        className="w-full h-full"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <video
+                        src={product.video_url}
+                        controls
+                        className="w-full h-full object-cover"
+                        preload="metadata"
+                      >
+                        Your browser does not support the video tag.
+                      </video>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Product Information */}

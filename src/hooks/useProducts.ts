@@ -13,7 +13,33 @@ export const useProducts = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as Product[];
+      
+      // Transform the data to match our Product type
+      return data.map(product => ({
+        ...product,
+        additional_charges: (product.additional_charges as any) || []
+      })) as Product[];
+    },
+  });
+};
+
+export const useProduct = (id: string) => {
+  return useQuery({
+    queryKey: ['product', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) throw error;
+      
+      // Transform the data to match our Product type
+      return {
+        ...data,
+        additional_charges: (data.additional_charges as any) || []
+      } as Product;
     },
   });
 };
@@ -25,7 +51,7 @@ export const useCreateProduct = () => {
     mutationFn: async (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
       const { data, error } = await supabase
         .from('products')
-        .insert([{
+        .insert({
           name: product.name,
           brand: product.brand,
           price: product.price,
@@ -39,8 +65,8 @@ export const useCreateProduct = () => {
           rating: product.rating,
           reviews: product.reviews,
           moq: product.moq,
-          additional_charges: product.additional_charges
-        }])
+          additional_charges: product.additional_charges as any
+        })
         .select()
         .single();
       
@@ -74,7 +100,7 @@ export const useUpdateProduct = () => {
           rating: updates.rating,
           reviews: updates.reviews,
           moq: updates.moq,
-          additional_charges: updates.additional_charges
+          additional_charges: updates.additional_charges as any
         })
         .eq('id', id)
         .select()
